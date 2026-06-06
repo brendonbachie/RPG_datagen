@@ -1,0 +1,23 @@
+Nível:
+
+    Proficiência necessária para se ultilizar uma relíquia.
+
+    USUAL:
+    
+        Esse nivel de abrange relíquias com formato de armas simples como:
+    
+        Adagas, bastões, facas, lanças, espadas, bacamartes, martelos, arcos, armaduras leves e medias.
+    
+    
+    CERIMONIAL:
+    
+        Esse nivel de abrange relíquias com formato de objetos cotidianos como:
+    
+        Tochas, talismãs, correntes, sinos, grimórios.
+    
+    
+    CATACLISMA:
+    
+        Esse nivel de abrange relíquias Usual e Cerimonial, porem em formas maiores como:
+    
+        Canhões, martelos gigantes, escudos, armaduras pesadas, achas, foices.

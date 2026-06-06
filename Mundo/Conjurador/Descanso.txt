@@ -1,0 +1,93 @@
+DESCANSO:
+
+O DESCANSO representa um período de recuperação física, mental e espiritual de um CONJURADOR.
+
+Durante um DESCANSO, o CONJURADOR pode tratar ferimentos, reorganizar equipamentos e recuperar suas forças.
+
+A duração exata de um DESCANSO é determinada pelo NARRADOR de acordo com a situação.
+
+---
+
+BENEFÍCIOS DO DESCANSO:
+
+Ao concluir um DESCANSO, o CONJURADOR:
+
+- Retorna sua CONEXÃO para 0.
+- Remove condições temporárias apropriadas, a critério do NARRADOR.
+- Recupera VIDA conforme as regras de recuperação.
+
+---
+
+RECUPERAÇÃO DE VIDA:
+
+Ao concluir um DESCANSO, o CONJURADOR recupera:
+
+1d4 para cada ponto de VITALIDADE.
+
+EXEMPLO:
+
+Um CONJURADOR com:
+
+- VITALIDADE 3
+
+Recupera:
+
+3d4 VIDA
+
+---
+
+ASSISTÊNCIA MÉDICA:
+
+Durante um DESCANSO, um CONJURADOR pode abrir mão dos benefícios do próprio DESCANSO para realizar um TESTE DE MEDICINA em outro CONJURADOR.
+
+O CONJURADOR responsável pelo tratamento não recebe os benefícios do DESCANSO.
+
+TRATAMENTO:
+
+O alvo recupera:
+
+1d4 para cada ponto de MEDICINA do responsável pelo tratamento.
+
+Esse valor é somado à recuperação normal do DESCANSO.
+
+EXEMPLO:
+
+Paciente:
+
+- VITALIDADE 3
+
+Médico:
+
+- MEDICINA 4
+
+Recuperação:
+
+3d4 + 4d4 VIDA
+
+Total:
+
+7d4 VIDA
+
+---
+
+CONEXÃO:
+
+Ao concluir um DESCANSO, a CONEXÃO retorna para 0.
+
+A sintonia acumulada entre o CONJURADOR e sua RELÍQUIA é dissipada, exigindo que uma nova conexão seja construída durante futuras cenas e COMBATES.
+
+---
+
+CONDIÇÕES:
+
+Condições causadas por fadiga, exaustão, sangramento ou efeitos temporários podem ser removidas durante um DESCANSO, a critério do NARRADOR.
+
+Condições provenientes de doenças, venenos, maldições ou ferimentos graves podem exigir tratamento específico para serem removidas.
+
+---
+
+INTERRUPÇÃO:
+
+Caso o DESCANSO seja interrompido por um COMBATE, perigo imediato ou outra situação relevante, seus benefícios podem não ser obtidos.
+
+A decisão final cabe ao NARRADOR.

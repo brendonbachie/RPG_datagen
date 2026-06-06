@@ -1,0 +1,259 @@
+CRIAÇÃO DE RELÍQUIAS
+
+Uma RELÍQUIA é a manifestação material da essência de um FAMILIAR.
+
+Ao criar uma RELÍQUIA, o jogador define sua origem, aparência e propriedades mecânicas.
+
+Toda RELÍQUIA é composta pelos seguintes elementos:
+
+1. FAMILIAR
+2. MATRIZ
+3. FORMA
+4. NÚCLEO
+5. VETOR
+6. NÍVEL
+7. ALCANCE
+8. ÁREA DE AÇÃO
+9. TIPO DE DANO
+10. DADO DE DANO
+11. MULTIPLICADOR CRÍTICO
+12. CONJURAÇÕES
+
+---
+
+PASSO 1: CRIE O FAMILIAR
+
+O FAMILIAR é a criatura cuja essência originou a RELÍQUIA.
+
+Defina:
+
+- NOME
+- APARÊNCIA
+- COMPORTAMENTO
+- MATRIZ
+
+EXEMPLO:
+
+FAMILIAR:
+
+NOME:
+
+    Falcão Solar
+
+DESCRIÇÃO:
+
+    Uma ave envolta por chamas douradas que mergulha sobre suas presas como um meteoro.
+
+---
+
+PASSO 2: ESCOLHA A MATRIZ
+
+A MATRIZ representa a natureza sobrenatural da RELÍQUIA.
+
+Exemplos:
+
+- INCÊNDIO
+- INUNDAÇÃO
+- TEMPESTADE
+- CICLONE
+- TERREMOTO
+- NEUTRO
+- MARCIAL
+- FAUNA
+- FLORA
+- GUARDIÃO
+- FÁBULA
+- SÓLIDO
+- MALEÁVEL
+- ESCURO
+- ESPIRITUAL
+- MENTAL
+
+Normalmente a MATRIZ da RELÍQUIA é a mesma do FAMILIAR.
+
+---
+
+PASSO 3: DEFINA A FORMA DA RELÍQUIA
+
+Determine como a RELÍQUIA se manifesta.
+
+Exemplos:
+
+- ESPADA
+- LANÇA
+- ARCO
+- MACHADO
+- ESCUDO
+- CORRENTE
+- MARTELO
+- ADAGA
+- LIVRO
+- INSTRUMENTO MUSICAL
+
+EXEMPLO:
+
+FORMA:
+
+LANÇA
+
+---
+
+PASSO 4: ESCOLHA O NÚCLEO
+
+O NÚCLEO determina como a RELÍQUIA interage com as CONJURAÇÕES.
+
+IMPACTO
+
+Combina o DANO da RELÍQUIA com o DANO da CONJURAÇÃO.
+
+CANALIZAÇÃO
+
+Utiliza apenas o DANO da CONJURAÇÃO.
+
+DEFERIMENTO
+
+Especializa-se em efeitos e suporte.
+
+---
+
+PASSO 5: ESCOLHA O VETOR
+
+O VETOR determina qual ATRIBUTO é utilizado para realizar TESTES DE ATAQUE com a RELÍQUIA.
+
+VETORES:
+
+- BRUTALIDADE
+- RAPIDEZ
+- VITALIDADE
+- INFLUÊNCIA
+- SINTONIA
+- ASTÚCIA
+
+EXEMPLO:
+
+VETOR:
+
+RAPIDEZ
+
+---
+
+PASSO 6: DEFINA O NÍVEL
+
+O NÍVEL representa a raridade e o poder da RELÍQUIA.
+
+NÍVEIS:
+
+- USUAL
+- CERIMONIAL
+- CATACLISMA
+
+---
+
+PASSO 7: DEFINA O ALCANCE
+
+Determine a distância efetiva da RELÍQUIA.
+
+ALCANCES:
+
+- CURTO
+- MÉDIO
+- LONGO
+- EXTREMO
+
+---
+
+PASSO 8: DEFINA A ÁREA DE AÇÃO
+
+Determina como a RELÍQUIA afeta seus alvos.
+
+ÁREAS:
+
+- INDIVIDUAL
+- LINHA
+- CONE
+- CÍRCULO
+- ZONA
+
+---
+
+PASSO 9: DEFINA O TIPO DE DANO
+
+Determine como a RELÍQUIA causa DANO.
+
+TIPOS:
+
+- CORTE
+- PERFURAÇÃO
+- IMPACTO
+- ELEMENTAL
+
+Uma RELÍQUIA pode possuir mais de um TIPO DE DANO.
+
+---
+
+PASSO 10: DEFINA O DADO DE DANO
+
+Determine os DADOS DE DANO básicos da RELÍQUIA.
+
+EXEMPLOS:
+
+- 1d6
+- 1d8
+- 1d10
+- 2d6
+
+---
+
+PASSO 11: DEFINA O MULTIPLICADOR CRÍTICO
+
+Determina o aumento dos DADOS DE DANO em um ACERTO CRÍTICO.
+
+EXEMPLOS:
+
+x2
+
+x3
+
+x4
+
+---
+
+PASSO 12: ESCOLHA AS CONJURAÇÕES
+
+Selecione ou crie as CONJURAÇÕES conhecidas pela RELÍQUIA.
+
+As CONJURAÇÕES representam as manifestações sobrenaturais da essência do FAMILIAR.
+
+---
+
+FICHA FINAL
+
+RELÍQUIA:
+
+NOME
+
+DESCRIÇÃO
+
+FAMILIAR
+
+DESCRIÇÃO DO FAMILIAR
+
+MATRIZ
+
+NÚCLEO
+
+VETOR
+
+NÍVEL
+
+ALCANCE
+
+ÁREA DE AÇÃO
+
+TIPO DE DANO
+
+DADO DE DANO
+
+MULTIPLICADOR CRÍTICO
+
+CONJURAÇÕES

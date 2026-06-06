@@ -1,0 +1,20 @@
+Núcleo:
+
+Parte central e modo e execução de conjurações da relíquia.
+
+IMPACTO:
+
+    Relíquias com esse tipo de Núcleo aplicam suas conjuracões ao executar ataques físicos no inimigo. 
+    conjurações podem ser associadas a relíquia e serem ativadas ao contato do ataque.
+
+
+CANALIZAÇÃO:
+ 
+    Relíquias com esse tipo de Núcleo são focos de conjurações puros.
+    Conjuracões de nivel 0 podem ser executadas como ação bonus um vez por combate.
+
+
+DEFERIMENTO:
+
+    Relíquias com esse tipo de Núcleo usam conjurações de forma abstrata.
+    Conjuracões podem adicionar uma manobras um vez por combate.

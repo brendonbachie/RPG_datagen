@@ -1,0 +1,71 @@
+INICIATIVA:
+
+A INICIATIVA determina a ordem em que os participantes atuam durante um COMBATE.
+
+Quando um COMBATE se inicia, todos os participantes realizam um TESTE DE INICIATIVA.
+
+Os participantes atuam do maior resultado para o menor resultado.
+
+---
+
+TESTE DE INICIATIVA:
+
+Resultado = ROLAGEM DE RAPIDEZ + INICIATIVA
+
+Onde:
+
+- RAPIDEZ determina a quantidade de d20 rolados.
+- INICIATIVA é a PERÍCIA utilizada no TESTE.
+
+EXEMPLO:
+
+Um CONJURADOR com:
+
+- RAPIDEZ 3
+- INICIATIVA 2
+
+Realiza:
+
+VANTAGEM de 3d20 + 2
+
+---
+
+ORDEM DE TURNO:
+
+Após todos os TESTES DE INICIATIVA serem concluídos, os participantes são organizados em ordem decrescente.
+
+EXEMPLO:
+
+CONJURADOR A:
+
+VANTAGEM de 3d20 + 2 = 18
+
+CONJURADOR B:
+
+VANTAGEM de 2d20 + 4 = 16
+
+CONJURADOR C:
+
+VANTAGEM de 4d20 + 1 = 22
+
+Ordem dos TURNOS:
+
+1. CONJURADOR C
+2. CONJURADOR A
+3. CONJURADOR B
+
+---
+
+EMPATE:
+
+Em caso de empate, atua primeiro o participante com o maior valor de RAPIDEZ.
+
+Persistindo o empate, os participantes realizam um novo TESTE DE INICIATIVA.
+
+---
+
+SURPRESA:
+
+Quando um participante não percebe o início de um COMBATE, ele recebe a condição DISTRAÍDO até o início de seu primeiro TURNO.
+
+A determinação de SURPRESA fica a critério do NARRADOR ou de TESTES apropriados.

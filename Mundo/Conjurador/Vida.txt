@@ -1,0 +1,57 @@
+VIDA:
+
+A VIDA representa a capacidade de um CONJURADOR de suportar ferimentos físicos e continuar atuando.
+
+A VIDA MÁXIMA é determinada durante a criação do personagem e aumenta sempre que ele obtém um novo NÍVEL.
+
+CÁLCULO:
+
+VIDA = 8 + (NÍVEL × VITALIDADE) + (NÍVEL × 1d6)
+
+EXEMPLO:
+
+Um CONJURADOR com:
+
+NÍVEL 1
+VITALIDADE 2
+
+Realiza:
+
+VIDA = 8 + (1 × 2) + (1 × 1d6)
+
+Obtendo 4 no dado:
+
+VIDA = 8 + 2 + 4
+
+VIDA = 14
+
+---
+
+Um CONJURADOR com:
+
+NÍVEL 3
+VITALIDADE 2
+
+Realiza:
+
+VIDA = 8 + (3 × 2) + (3 × 1d6)
+
+Obtendo:
+
+1d6 = 4
+1d6 = 5
+1d6 = 2
+
+Resultado:
+
+VIDA = 8 + 6 + 11
+
+VIDA = 25
+
+---
+
+AVANÇO DE NÍVEL:
+
+Sempre que um CONJURADOR obtiver um novo NÍVEL, sua VIDA MÁXIMA aumenta em:
+
+VITALIDADE + 1d6

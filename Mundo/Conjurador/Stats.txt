@@ -1,0 +1,22 @@
+VIDA:
+
+    Quantifica a saúde e a capacidade de um CONJURADOR continuar lutando.
+
+    A VIDA varia entre 0 e seu valor máximo de VIDA.
+
+    Quando a VIDA de um CONJURADOR chega a 0, ele fica INCAPACITADO.
+
+    (0, VIDA)
+
+
+CONEXÃO:
+
+    Quantifica a sintonia entre um CONJURADOR e sua RELÍQUIA.
+
+    A CONEXÃO varia entre 0 e seu valor máximo de CONEXÃO.
+
+    Para executar uma CONJURAÇÃO, o CONJURADOR deve possuir CONEXÃO igual ou superior ao valor exigido pela técnica.
+
+    Ao final de um DESCANSO, a CONEXÃO retorna para 0.
+
+    (0, CONEXÃO)

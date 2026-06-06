@@ -1,0 +1,122 @@
+MANOBRAS:
+
+    MANOBRAS são ações especiais utilizadas durante o COMBATE para impor condições, limitar movimentos ou alterar o posicionamento de um alvo.
+
+    Uma MANOBRA é resolvida através de um TESTE de PERÍCIA do AGRESSOR contra um TESTE da PERÍCIA do AGREDIDO.
+
+    TESTE DE MANOBRA:
+
+    Em caso de SUCESSO do AGRESSOR, o efeito da MANOBRA é aplicado.
+
+    ---
+
+    DERRUBAR:
+
+        O AGRESSOR tenta desequilibrar o alvo e fazê-lo cair.
+
+        TESTE:
+
+            COMBATE x EQUILÍBRIO
+
+        EFEITO:
+
+            O alvo recebe a condição CAÍDO.
+
+    EMPURRAR:
+
+        O AGRESSOR força o alvo para longe.
+
+        TESTE:
+
+            POTÊNCIA x POTÊNCIA
+
+                    ou
+
+            POTÊNCIA X EQUILÍBRIO
+
+        EFEITO:
+
+            O alvo é movido até metade de um ALCANCE CURTO(3 quadrados) para longe do AGRESSOR.
+
+    ---
+
+    AGARRAR:
+
+        O AGRESSOR prende o alvo utilizando força física ou sua RELÍQUIA.
+    
+        TESTE:
+
+            COMBATE x COMBATE
+
+    
+        EFEITO:
+    
+            O alvo recebe a condição AGARRADO.
+    
+        AGARRADO:
+    
+            - Não pode se afastar voluntariamente do AGRESSOR.
+            - Sofre DESVANTAGEM em TESTES DE EQUILÍBRIO.
+    
+        ---
+    
+    MOVER:
+
+         Caso o alvo esteja coma condição AGARRADOO o  AGRESSOR força o alvo em uma direção escolhida pelo AGRESSOR.
+
+    TESTE AGREDIDO:
+
+        POTÊNCIA x POTÊNCIA
+
+
+    EFEITO:
+
+        O alvo é movido até metade de um ALCANCE CURTO em direção uma direção escolhida pelo AGRESSOR.
+
+    ---
+
+    ARREMESSAR:
+
+        O AGRESSOR utiliza um alvo AGARRADO como projétil.
+
+    REQUISITO:
+
+        O alvo deve estar AGARRADO.
+
+    TESTE AGREDIDO:
+
+        COMBATE x COMBATE
+
+
+    EFEITO:
+
+        - O alvo é movido até 1 ALCANCE CURTO.
+        - O alvo recebe a condição CAÍDO.
+
+    ---
+
+    IMOBILIZAR:
+
+        O AGRESSOR restringe completamente os movimentos do alvo, necessita algum objeto que imobilize.
+
+    TESTE AGREDIDO:
+
+        RESILIÊNCIA ou VONTADE contra DT.
+
+    EFEITO:
+
+        O alvo recebe a condição IMOBILIZADO.
+
+    ---
+
+    PROVOCAR:
+
+        O AGRESSOR instiga o alvo a agir impulsivamente.
+
+    TESTE AGREDIDO:
+
+        VONTADE
+
+    EFEITO:
+
+        O alvo recebe a condição PROVOCADO.

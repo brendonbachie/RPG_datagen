@@ -1,0 +1,63 @@
+RELÍQUIA:
+
+    NOME: Nome da RELÍQUIA
+
+    DESCRIÇÃO:
+
+            Descrição da RELÍQUIA.
+
+    ALCANCE:
+
+        CURTO
+        MEDIO
+        LONGO
+        EXTREMO
+
+    DADO DANO:
+
+        X = VALOR
+
+        Y = VALOR
+
+    NIVEL:
+
+        USUAL
+        CERIMONIAL
+        CATACLISMA
+
+    NUCLEO:
+
+        IMPACTO
+        CANALIZAÇÃO
+        DEFERIMENTO
+
+    MATRIZ:
+
+        INCÊNDIO
+        INUNDAÇÃO
+        TEMPESTADE
+        CICLONE
+        TERREMOTO
+        NEUTRO
+        MARCIAL
+        FAUNA
+        FLORA
+        GUARDIÃO
+        FÁBULA
+        SÓLIDO
+        MALEÁVEL
+        ESCURO
+        ESPIRITUAL
+        MENTAL
+        
+            SUB-MATRIZ:
+                
+                ONDA
+                FÚRIA
+                ESPORO
+                TEMPERATURA
+
+
+    CONJURAÇÕES:
+
+        Lista de CONJURAÇÕES.

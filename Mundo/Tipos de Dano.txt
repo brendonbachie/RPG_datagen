@@ -1,0 +1,37 @@
+TIPOS DE DANO:
+
+    PERFURAÇÃO:
+
+        Golpes que atravessam o alvo.
+
+        Exemplos:
+            Lanças
+            Flechas
+            Estocadas
+
+    CORTE:
+
+        Golpes que dilaceram o alvo.
+
+        Exemplos:
+            Espadas
+            Machados
+            Garras
+
+    IMPACTO:
+
+        Golpes contundentes.
+
+        Exemplos:
+            Martelos
+            Clavas
+            Escudos
+
+    MATRIZ:
+
+        Danos causados diretamente por MATRIZES.
+
+        Exemplos:
+            
+            INCÊNDIO
+            INUNDAÇÃO

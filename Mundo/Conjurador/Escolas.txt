@@ -1,0 +1,96 @@
+Escola:
+
+    Modo que um CONJURADOR interfere no combate e interage com o ambiente baseado em sua vivência e aprendizado.
+
+    DESTEMIDO:
+
+        Pericias(2/6):
+        
+            Potência, Iniciativa, Combate, Resiliência, Equilíbrio, Ameaça
+
+        Competências:
+        
+            Relíquias (Usual/Cataclisma)
+
+        Ímpeto:
+
+            Se o CONJURADOR usar sua Ação de movimento para avançar em direcao de um inimigo
+            em seu primeiro ataque o CONJURADOR pode usar um conjuracao como ação bonus.
+
+
+    CANALIZADOR:
+
+        Pericias(2/6):
+        
+            Conjuração, Sentidos, Crença, Astúcia, Vontade, Diplomacia
+
+        Competências:
+        
+            Relíquias (Usual/Cerimonial)
+
+        Fluxo:
+
+            O CONJURADOR consegue manter duas conjuracões sustentadas ao mesmo tempo.
+
+
+    INABALAVEL:
+
+        Pericias(2/6):
+        
+            Potência, Resiliência, Combate, Crença, Vontade, Ameaça
+
+        Competências:
+        
+            Relíquias (Usual/Cataclisma)
+
+        Ancoragem:
+
+            O CONJURADOR tem vantagem em teste contra deslocamento forçado
+            e tambem em teste de resistência de Vitalidade.
+
+
+    OPORTUNISTA:
+
+        Pericias(2/6):
+            
+            Crime, Equilíbrio, Iniciativa, Sentidos, Enganação, Esquiva
+
+        Competências:
+        
+            Relíquias (Usual/Cerimonial)
+
+        Aproveitamento:
+
+            Caso o CONJURADOR acerte uma ataque em um alvo que esteja sobre alguma condição negativa
+            ele causa um dado a mais de dano do mesmo tipo de sua Relíquia
+            e aplica a condicao novamente.
+
+
+    CALCULISTA:
+
+        Pericias(3/6):
+        
+            Tecnologia, Astúcia, Ofícios, Sentidos, Iniciativa, Combate
+
+        Competências:
+        
+            Relíquias (Usual/Cataclisma)
+
+        Foco:
+
+            O CONJURADOR pode executar conjurações de dois ou mais turno em apenas 1.
+
+
+    FACILITADOR:
+
+        Pericias(3/6):
+        
+            Diplomacia, Conjuração, Enganação, Crença, Influência, Vontade
+
+        Competências:
+
+            Relíquias (Usual/Cerimonial)
+
+        Cooperar:
+
+            O CONJURADOR pode usar conjurações em aliados como ação bonus.

@@ -1,0 +1,41 @@
+VETOR:
+
+    O VETOR representa a forma pela qual um CONJURADOR manifesta o poder de sua RELÍQUIA.
+
+    Toda RELÍQUIA possui um VETOR associado a um ATRIBUTO. Esse ATRIBUTO é utilizado para realizar TESTES DE ATAQUE e determinar a intensidade com que a VONTADE do FAMILIAR se expressa através do portador.
+
+    Uma mesma RELÍQUIA pode manifestar-se de formas diferentes dependendo do VETOR escolhido.
+
+    VETORES:
+
+        BRUTALIDADE
+
+            A RELÍQUIA manifesta seu poder através da força física e da agressividade.
+
+        RAPIDEZ
+
+            A RELÍQUIA manifesta seu poder através da velocidade, precisão e reflexos.
+
+        VITALIDADE
+
+            A RELÍQUIA manifesta seu poder através da resistência e da capacidade de suportar adversidades.
+
+        INFLUÊNCIA
+
+            A RELÍQUIA manifesta seu poder através da presença, autoridade e força de personalidade.
+
+        SINTONIA
+
+            A RELÍQUIA manifesta seu poder através da conexão espiritual entre o portador e o FAMILIAR.
+
+        ASTÚCIA
+
+            A RELÍQUIA manifesta seu poder através da técnica, estratégia e intelecto do portador.
+
+        EXEMPLO:
+
+            Uma lança associada ao VETOR RAPIDEZ pode realizar investidas rápidas e precisas.
+
+            A mesma lança associada ao VETOR BRUTALIDADE pode concentrar seu poder em golpes devastadores.
+
+            Embora a forma da RELÍQUIA permaneça a mesma, a maneira como ela expressa sua VONTADE é determinada pelo VETOR.

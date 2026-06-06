@@ -1,0 +1,52 @@
+ATRIBUTOS:
+
+
+    Valores:
+
+        (0-6)
+
+        Todos os ATRIBUTOS começam com valor 1.
+
+        Cada jogador recebe 4 pontos de ATRIBUTO para distribuir livremente entre eles, respeitando o limite máximo de 3 pontos em cada ATRIBUTO.
+
+        Opcionalmente, o jogador pode reduzir um ATRIBUTO de valor 1 para 0. Ao fazer isso, ele ganha 1 ponto adicional para distribuição, passando a ter 5 pontos disponíveis no total.
+
+    
+    Brutalidade:
+
+    Representa força aplicada, impacto e imposição física. Capacidade de esmagar resistência, romper defesas.
+    Personagens com alta Brutalidade costumam lutar de forma agressiva e direta, usando o próprio corpo ou relíquias pesadas.
+
+
+    Rapidez:
+
+    Mede reflexo, coordenação e fluidez de movimento. É o atributo da velocidade, mas também da precisão corporal e adaptação instantânea.
+    Um personagem veloz reage antes dos outros, encontra brechas no combate e transforma movimento em vantagem constante.
+
+
+    Vitalidade:
+
+    Representa resistência, persistência e estabilidade física e espiritual. É a capacidade de continuar avançando mesmo ferido,
+    suportar pressão e sobreviver ao desgaste de técnicas perigosas. Personagens com alta Vitalidade parecem difíceis de derrubar,
+    como se seus corpos recusassem a queda.
+
+
+    Influência:
+
+    Mede presença, expressão e a capacidade de afetar os outros através da voz, postura ou intenção. Está ligada à simpatia,
+    mas também ao medo, liderança, manipulação e força emocional.
+    Um indivíduo influente altera o ambiente ao seu redor simplesmente por existir nele.
+
+
+    Sintonia:
+
+    Representa conexão com forças invisíveis, percepção energética e harmonia com relíquias e matrizes.
+    É o atributo da sensibilidade espiritual e da compreensão intuitiva do fluxo elemental.
+    Personagens com alta Sintonia parecem tocar algo além do mundo físico.
+
+
+    Astúcia:
+
+    Define raciocínio, adaptação e inteligência prática. É a capacidade de improvisar, compreender mecanismos,
+    planejar estratégias e perceber oportunidades escondidas. Um personagem astuto vence através da leitura da situação,
+    utilizando técnica, criatividade e conhecimento para superar obstáculos.

@@ -1,0 +1,326 @@
+# TESTES:
+
+TESTES quantificam o desempenho de um CONJURADOR durante uma AÇÃO através da rolagem de DADOS.
+
+---
+
+## DADOS:
+
+### NOTAÇÃO:
+
+Os DADOS são representados no formato:
+
+1d20
+
+Onde:
+
+* 1 = Quantidade de DADOS rolados.
+* d = Indicação de DADO.
+* 20 = Número de lados do DADO.
+
+Exemplos:
+
+* 1d20 → Um DADO de vinte lados.
+* 2d6 → Dois DADOS de seis lados.
+* 3d8 → Três DADOS de oito lados.
+
+---
+
+## ROLAGEM:
+
+Resultado obtido após lançar os DADOS.
+
+### VANTAGEM:
+
+Quando uma ROLAGEM gera múltiplos resultados, utiliza-se o maior valor obtido.
+
+### DESVANTAGEM:
+
+Quando uma ROLAGEM gera múltiplos resultados, utiliza-se o menor valor obtido.
+
+---
+
+## PARTICIPANTES:
+
+### AGRESSOR:
+
+Ser ou objeto que provoca um TESTE.
+
+### AGREDIDO:
+
+Ser ou objeto que reage a um TESTE.
+
+---
+
+## DT:
+
+Valor que deve ser alcançado ou superado para obter SUCESSO.
+
+---
+
+## SUCESSO:
+
+Um TESTE obtém SUCESSO quando:
+
+* A ROLAGEM é igual ou superior à DT.
+
+ou
+
+* O resultado do AGRESSOR é igual ou superior ao resultado do AGREDIDO.
+
+### SUCESSO CRÍTICO:
+
+Ao obter 20 como resultado de uma ROLAGEM:
+
+* O TESTE é bem-sucedido automaticamente.
+
+---
+
+## FALHA:
+
+Um TESTE falha quando:
+
+* A ROLAGEM é inferior à DT.
+
+ou
+
+* O resultado do AGRESSOR é inferior ao resultado do AGREDIDO.
+
+### FALHA CRÍTICA:
+
+Ao obter 1 como resultado de uma ROLAGEM:
+
+* O TESTE falha automaticamente.
+
+---
+
+## ATRIBUTOS E VETORES:
+
+ATRIBUTOS e VETORES determinam quantos d20 serão rolados durante um TESTE.
+
+O valor do ATRIBUTO ou VETOR corresponde à quantidade de d20 utilizados.
+
+Após a rolagem, utiliza-se a VANTAGEM da ROLAGEM.
+
+### EXEMPLOS:
+
+**BRUTALIDADE 1**
+
+* Role 1d20.
+* Utilize o resultado obtido.
+
+**BRUTALIDADE 2**
+
+* Role 2d20.
+* Utilize o maior resultado.
+
+---
+
+### ATRIBUTOS OU VETORES INFERIORES A 1:
+
+Quando um ATRIBUTO ou VETOR possuir valor inferior a 1:
+
+* A ROLAGEM passa a utilizar DESVANTAGEM.
+* O CONJURADOR recebe +1d20 para cada ponto abaixo de 1.
+
+### EXEMPLO:
+
+**BRUTALIDADE 0**
+
+* Role 2d20.
+* Utilize o menor resultado.
+
+**BRUTALIDADE -1**
+
+* Role 3d20.
+* Utilize o menor resultado.
+
+---
+
+# TESTES DE PERÍCIA:
+
+Todos os TESTES DE PERÍCIA utilizam d20.
+
+### TESTE DE PERÍCIA:
+
+Resultado = ROLAGEM + PERÍCIA
+
+Onde a ROLAGEM é determinada pelo ATRIBUTO associado à PERÍCIA.
+
+### EXEMPLO:
+
+Um CONJURADOR com:
+
+* BRUTALIDADE 3
+* COMBATE 2
+
+Realiza:
+
+* Rola 3d20.
+* Utiliza o maior resultado.
+* Soma +2.
+
+Resultado final:
+
+**VANTAGEM de 3d20 + COMBATE**
+
+## REAÇÕES:
+
+Sempre que um CONJURADOR for alvo de um TESTE DE ATAQUE, ele pode realizar uma REAÇÃO.
+
+Uma REAÇÃO é resolvida através de um TESTE oposto ao TESTE DE ATAQUE do AGRESSOR.
+
+---
+
+### ESQUIVA:
+
+A ESQUIVA representa movimentos defensivos utilizados para evitar completamente um ataque.
+
+Em caso de SUCESSO:
+
+* Todo o DANO do ataque é evitado.
+
+#### TESTE DE ESQUIVA:
+
+Resultado = ROLAGEM DE RAPIDEZ + ESQUIVA
+
+Exemplo:
+
+Um CONJURADOR com RAPIDEZ 3 e ESQUIVA 2:
+
+* Rola 3d20.
+* Utiliza o maior resultado.
+* Soma +2.
+
+Resultado:
+
+**VANTAGEM de 3d20 + ESQUIVA**
+
+---
+
+### BLOQUEIO:
+
+O BLOQUEIO representa resistência física, postura defensiva ou o uso de uma RELÍQUIA para absorver impacto.
+
+Em caso de SUCESSO:
+
+* O DANO recebido é reduzido em:
+
+**RESILIÊNCIA + VITALIDADE**
+
+#### TESTE DE BLOQUEIO:
+
+Resultado = ROLAGEM DE VITALIDADE + RESILIÊNCIA + VITALIDADE
+
+Exemplo:
+
+Um CONJURADOR com VITALIDADE 2 e RESILIÊNCIA 3:
+
+* Rola 2d20.
+* Utiliza o maior resultado.
+* Soma +3.
+* Soma +2.
+
+Resultado:
+
+**VANTAGEM de 2d20 + RESILIÊNCIA + VITALIDADE**
+
+---
+
+# DANO:
+
+O DANO representa a quantidade de VIDA removida de um alvo após um ataque bem-sucedido.
+
+---
+
+## DANO SIMPLES:
+
+O DANO é determinado apenas pelas características físicas da RELÍQUIA.
+
+Exemplo:
+
+* Espada: 1d8
+* Machado: 1d10
+* Adaga: 1d6
+
+---
+
+## ACERTO CRÍTICO:
+
+Quando um ataque obtém um SUCESSO CRÍTICO, os DADOS DE DANO são multiplicados pelo MULTIPLICADOR CRÍTICO da RELÍQUIA.
+
+Exemplo:
+
+Uma RELÍQUIA com DANO 1d8 e MULTIPLICADOR ×2:
+
+* DANO NORMAL = 1d8 + VETOR
+* DANO CRÍTICO = 2d8 + VETOR
+
+---
+
+## DANO DE RELÍQUIA SIMPLES:
+
+Utiliza apenas os DADOS DE DANO da RELÍQUIA.
+
+### FÓRMULA:
+
+DANO = DADOS DA RELÍQUIA + VETOR
+
+### EXEMPLO:
+
+Uma espada que causa 1d8:
+
+**1d8 + VETOR**
+
+---
+
+## DANO DE CANALIZAÇÃO:
+
+Utiliza apenas os DADOS DE DANO fornecidos pela CONJURAÇÃO.
+
+### FÓRMULA:
+
+DANO = DADOS DA CONJURAÇÃO + VETOR
+
+### EXEMPLO:
+
+Uma CONJURAÇÃO que causa 2d6:
+
+**2d6 + VETOR**
+
+---
+
+## CONJURAÇÃO DE IMPACTO:
+
+Combina o DANO físico da RELÍQUIA com o DANO da CONJURAÇÃO.
+
+### FÓRMULA:
+
+DANO = DADOS DA RELÍQUIA + DADOS DA CONJURAÇÃO + VETOR
+
+### EXEMPLO:
+
+Uma lança que causa 1d8 amplificada por uma CONJURAÇÃO que causa 2d6:
+
+**1d8 + 2d6 + VETOR**
+
+---
+
+### CRÍTICO EM CONJURAÇÃO DE IMPACTO:
+
+Em caso de SUCESSO CRÍTICO, tanto os DADOS DA RELÍQUIA quanto os DADOS DA CONJURAÇÃO são multiplicados pelo MULTIPLICADOR CRÍTICO da RELÍQUIA.
+
+Exemplo:
+
+Relíquia:
+
+* DANO: 1d8
+* MULTIPLICADOR: ×2
+
+Conjuração:
+
+* DANO: 2d6
+
+Resultado:
+
+**2d8 + 4d6 + VETOR**

@@ -1,0 +1,47 @@
+MORRENDO:
+
+O CONJURADOR sofreu ferimentos fatais e encontra-se à beira da morte.
+
+Enquanto estiver MORRENDO, o CONJURADOR permanece consciente apenas o suficiente para lutar por sua sobrevivência.
+
+EFEITOS:
+
+- Não pode realizar AÇÕES.
+- Não pode realizar REAÇÕES.
+- Sua movimentação é reduzida a 0.
+- Não pode utilizar RELÍQUIAS ou CONJURAÇÕES.
+
+TESTE DE SOBREVIVÊNCIA:
+
+Ao início de cada TURNO, o CONJURADOR deve realizar um TESTE DE VONTADE contra DT 10.
+
+SUCESSO:
+
+- O CONJURADOR permanece vivo até o início de seu próximo TURNO.
+
+FALHA:
+
+- O CONJURADOR recebe 1 MARCA DE MORTE.
+
+SUCESSO CRÍTICO:
+
+- O CONJURADOR estabiliza sua condição.
+- Remove a condição MORRENDO.
+
+FALHA CRÍTICA:
+
+- O CONJURADOR recebe 2 MARCAS DE MORTE.
+
+MORTE:
+
+Ao acumular 3 MARCAS DE MORTE, o CONJURADOR morre.
+
+ESTABILIZAÇÃO:
+
+Um CONJURADOR MORRENDO pode ser estabilizado através de:
+
+- TESTES DE MEDICINA.
+- CONJURAÇÕES apropriadas.
+- Habilidades que removam a condição MORRENDO.
+
+Ao ser estabilizado, o CONJURADOR deixa de receber MARCAS DE MORTE e remove a condição MORRENDO.
