@@ -15,7 +15,11 @@ import engine.ollama as _ollama_mod
 from engine import biblioteca
 from engine.ficha import formatar
 from engine.ollama import ErroOllama
-from engine.schemas import ALCANCES, AREAS, MATRIZES, SUBMATRIZES
+from engine.schemas import (
+    ALCANCES, AREAS, ESCOLAS, MATRIZES, NIVEIS_RELIQUIA, NUCLEOS,
+    SUBMATRIZES, TIPOS_DANO, VETORES,
+)
+from engine.regras import PERICIAS, RARIDADES
 from gerador import gerar_conjurador, gerar_conjuracao, gerar_familiar, gerar_reliquia
 
 _DADO_Y = ["4", "6", "8", "10", "12", "20"]
@@ -238,7 +242,7 @@ class GeradorGUI:
             self.notebook.add(frame, text=f"{icone}  {label}")
             self._construir_aba(frame, tipo, precisa_nivel)
 
-        # Aba Biblioteca: lista todas as conjurações já criadas.
+        # Aba Biblioteca: itens criados de todos os tipos (seletor de tipo).
         frame_bib = ttk.Frame(self.notebook, padding=16)
         self.notebook.add(frame_bib, text="≡  Biblioteca")
         self._idx_biblioteca = self.notebook.index("end") - 1
@@ -247,7 +251,7 @@ class GeradorGUI:
 
     def _construir_aba(self, frame: ttk.Frame, tipo: str, precisa_nivel: bool) -> None:
         frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(2, weight=1)
+        frame.rowconfigure(4, weight=1)
 
         # ── Linha superior: label + nível + botão Gerar ──
         topo = ttk.Frame(frame)
@@ -278,9 +282,29 @@ class GeradorGUI:
         )
         entrada.grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
+        # ── Painel recolhível de preferências (opcional) ──
+        prefs_frame, coletar_prefs = self._construir_prefs(frame, tipo)
+        aberto = tk.BooleanVar(value=False)
+        btn_pref = ttk.Button(frame, text="▸ Preferências (opcional)")
+
+        def alternar_prefs() -> None:
+            if aberto.get():
+                prefs_frame.grid_remove()
+                btn_pref.configure(text="▸ Preferências (opcional)")
+                aberto.set(False)
+            else:
+                prefs_frame.grid()
+                btn_pref.configure(text="▾ Preferências (opcional)")
+                aberto.set(True)
+
+        btn_pref.configure(command=alternar_prefs)
+        btn_pref.grid(row=2, column=0, sticky="w", pady=(0, 4))
+        prefs_frame.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        prefs_frame.grid_remove()
+
         # ── Sub-notebook de saída: JSON | Ficha ──
         nb_saida = ttk.Notebook(frame, style="Out.TNotebook")
-        nb_saida.grid(row=2, column=0, sticky="nsew")
+        nb_saida.grid(row=4, column=0, sticky="nsew")
 
         frame_json  = ttk.Frame(nb_saida)
         frame_ficha = ttk.Frame(nb_saida)
@@ -309,7 +333,7 @@ class GeradorGUI:
 
         # ── Botões inferiores ──
         acoes = ttk.Frame(frame)
-        acoes.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        acoes.grid(row=5, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(acoes, text="⧉ Copiar JSON",
                    command=lambda: self._copiar(saida_json, "JSON")).pack(side=tk.LEFT)
         ttk.Button(acoes, text="⧉ Copiar Ficha",
@@ -321,28 +345,200 @@ class GeradorGUI:
 
         # Conecta o botão GERAR
         acao = lambda *_: self._iniciar_geracao(
-            tipo, entrada, var_nivel, saida_json, saida_ficha, btn_gerar, nb_saida
+            tipo, entrada, var_nivel, saida_json, saida_ficha, btn_gerar, nb_saida,
+            coletar_prefs,
         )
         btn_gerar.configure(command=acao)
         entrada.bind("<Control-Return>", acao)
 
+    # ── Preferências por aba de geração ─────────────────────────────────────────
+    def _construir_prefs(self, parent: ttk.Frame, tipo: str):
+        """Cria o painel de preferências do tipo e retorna (frame, coletar_prefs).
+
+        coletar_prefs() devolve só os campos preenchidos (vazio ⇒ aleatório).
+        Comboboxes têm 1ª opção vazia = '(aleatório)'.
+        """
+        frame = ttk.Frame(parent)
+        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(3, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(frame, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=2)
+
+        def combo(var, valores, w=14):
+            return ttk.Combobox(frame, textvariable=var, values=[""] + list(valores),
+                                state="readonly", width=w)
+
+        nums = lambda a, b: [str(i) for i in range(a, b + 1)]
+
+        if tipo == "conjuracao":
+            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_nivel = tk.StringVar()
+            v_alc = tk.StringVar(); v_area = tk.StringVar(); v_dano = tk.StringVar()
+            v_dx = tk.StringVar(); v_dy = tk.StringVar()
+            v_custo = tk.StringVar(); v_ganho = tk.StringVar(); v_efe = tk.StringVar()
+            lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
+            lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
+            lbl(1, 0, "Nível");     combo(v_nivel, nums(0, 3), w=6).grid(row=1, column=1, sticky="w", pady=2)
+            lbl(1, 2, "Alcance");   combo(v_alc, ALCANCES).grid(row=1, column=3, sticky="ew", pady=2)
+            lbl(2, 0, "Área");      combo(v_area, AREAS).grid(row=2, column=1, sticky="ew", pady=2)
+            lbl(2, 2, "Causa dano"); combo(v_dano, ["Sim", "Não"], w=6).grid(row=2, column=3, sticky="w", pady=2)
+            lbl(3, 0, "Dado X");    combo(v_dx, nums(1, 6), w=6).grid(row=3, column=1, sticky="w", pady=2)
+            lbl(3, 2, "Dado Y");    combo(v_dy, _DADO_Y, w=6).grid(row=3, column=3, sticky="w", pady=2)
+            lbl(4, 0, "Custo conexão"); combo(v_custo, nums(0, 10), w=6).grid(row=4, column=1, sticky="w", pady=2)
+            lbl(4, 2, "Ganho conexão"); combo(v_ganho, nums(0, 10), w=6).grid(row=4, column=3, sticky="w", pady=2)
+            lbl(5, 0, "Efeitos")
+            ttk.Entry(frame, textvariable=v_efe).grid(row=5, column=1, columnspan=3, sticky="ew", pady=2)
+            ttk.Label(frame, text="(vírgula; deixe vazio para aleatório)",
+                      style="Sub.TLabel").grid(row=6, column=1, columnspan=3, sticky="w")
+
+            def coletar():
+                p = {}
+                if v_matriz.get(): p["matriz"] = v_matriz.get()
+                if v_sub.get():    p["submatriz"] = v_sub.get()
+                if v_nivel.get():  p["nivel"] = int(v_nivel.get())
+                if v_alc.get():    p["alcance"] = v_alc.get()
+                if v_area.get():   p["area"] = v_area.get()
+                if v_dano.get():   p["tem_dano"] = (v_dano.get() == "Sim")
+                if v_dx.get():     p["dado_x"] = int(v_dx.get())
+                if v_dy.get():     p["dado_y"] = int(v_dy.get())
+                if v_custo.get():  p["conexao_custo"] = int(v_custo.get())
+                if v_ganho.get():  p["conexao_ganho"] = int(v_ganho.get())
+                ef = self._csv(v_efe.get())
+                if ef:             p["efeitos"] = [e.upper() for e in ef]
+                return p
+
+        elif tipo == "conjurador":
+            v_escola = tk.StringVar(); v_idade = tk.StringVar(); v_per = tk.StringVar()
+            atr_chaves = [
+                ("brutalidade", "BRU"), ("rapidez", "RAP"), ("vitalidade", "VIT"),
+                ("influencia", "INF"), ("sintonia", "SIN"), ("astucia", "AST"),
+            ]
+            v_atr = {k: tk.StringVar() for k, _ in atr_chaves}
+            lbl(0, 0, "Escola"); combo(v_escola, ESCOLAS).grid(row=0, column=1, sticky="ew", pady=2)
+            lbl(0, 2, "Idade")
+            ttk.Entry(frame, textvariable=v_idade).grid(row=0, column=3, sticky="ew", pady=2)
+            lbl(1, 0, "Atributos")
+            attrs = ttk.Frame(frame); attrs.grid(row=1, column=1, columnspan=3, sticky="w", pady=2)
+            for i, (chave, rot) in enumerate(atr_chaves):
+                ttk.Label(attrs, text=rot, style="Sub.TLabel").grid(row=0, column=i * 2, padx=(0, 2))
+                ttk.Combobox(attrs, textvariable=v_atr[chave], values=["", "0", "1", "2", "3"],
+                             state="readonly", width=3).grid(row=0, column=i * 2 + 1, padx=(0, 8))
+            lbl(2, 0, "Perícias")
+            ttk.Entry(frame, textvariable=v_per).grid(row=2, column=1, columnspan=3, sticky="ew", pady=2)
+            ttk.Label(frame, text="Atributos/perícias são guia — o sistema ajusta pelas regras.",
+                      style="Sub.TLabel").grid(row=3, column=1, columnspan=3, sticky="w")
+
+            def coletar():
+                p = {}
+                if v_escola.get(): p["escola"] = v_escola.get()
+                if v_idade.get().strip(): p["idade"] = v_idade.get().strip()
+                atr = {k: v_atr[k].get() for k, _ in atr_chaves if v_atr[k].get()}
+                if atr:
+                    p["atributos"] = ", ".join(f"{k} {v}" for k, v in atr.items())  # guia (não travado)
+                per = self._csv(v_per.get())
+                if per: p["pericias"] = per                                          # guia (não travado)
+                return p
+
+        elif tipo == "reliquia":
+            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_nuc = tk.StringVar()
+            v_vet = tk.StringVar(); v_nivel = tk.StringVar(); v_forma = tk.StringVar()
+            v_alc = tk.StringVar(); v_area = tk.StringVar(); v_tipos = tk.StringVar()
+            v_dx = tk.StringVar(); v_dy = tk.StringVar(); v_mult = tk.StringVar()
+            lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
+            lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
+            lbl(1, 0, "Núcleo");    combo(v_nuc, NUCLEOS).grid(row=1, column=1, sticky="ew", pady=2)
+            lbl(1, 2, "Vetor");     combo(v_vet, VETORES).grid(row=1, column=3, sticky="ew", pady=2)
+            lbl(2, 0, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=2, column=1, sticky="ew", pady=2)
+            lbl(2, 2, "Forma")
+            ttk.Entry(frame, textvariable=v_forma).grid(row=2, column=3, sticky="ew", pady=2)
+            lbl(3, 0, "Alcance");   combo(v_alc, ALCANCES).grid(row=3, column=1, sticky="ew", pady=2)
+            lbl(3, 2, "Área");      combo(v_area, AREAS).grid(row=3, column=3, sticky="ew", pady=2)
+            lbl(4, 0, "Tipos de dano")
+            ttk.Entry(frame, textvariable=v_tipos).grid(row=4, column=1, columnspan=3, sticky="ew", pady=2)
+            lbl(5, 0, "Dado X");    combo(v_dx, nums(1, 6), w=6).grid(row=5, column=1, sticky="w", pady=2)
+            lbl(5, 2, "Dado Y");    combo(v_dy, _DADO_Y, w=6).grid(row=5, column=3, sticky="w", pady=2)
+            lbl(6, 0, "Mult. crítico"); combo(v_mult, nums(2, 4), w=6).grid(row=6, column=1, sticky="w", pady=2)
+            ttk.Label(frame, text="(tipos de dano separados por vírgula)",
+                      style="Sub.TLabel").grid(row=7, column=1, columnspan=3, sticky="w")
+
+            def coletar():
+                p = {}
+                if v_matriz.get(): p["matriz"] = v_matriz.get()
+                if v_sub.get():    p["submatriz"] = v_sub.get()
+                if v_nuc.get():    p["nucleo"] = v_nuc.get()
+                if v_vet.get():    p["vetor"] = v_vet.get()
+                if v_nivel.get():  p["nivel"] = v_nivel.get()
+                if v_forma.get().strip(): p["forma"] = v_forma.get().strip()
+                if v_alc.get():    p["alcance"] = v_alc.get()
+                if v_area.get():   p["area"] = v_area.get()
+                td = self._csv(v_tipos.get())
+                if td:             p["tipos_dano"] = [t.upper() for t in td]
+                if v_dx.get():     p["dado_x"] = int(v_dx.get())
+                if v_dy.get():     p["dado_y"] = int(v_dy.get())
+                if v_mult.get():   p["mult_critico"] = int(v_mult.get())
+                return p
+
+        else:  # familiar
+            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_rar = tk.StringVar()
+            lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
+            lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
+            lbl(1, 0, "Raridade");  combo(v_rar, RARIDADES).grid(row=1, column=1, sticky="ew", pady=2)
+
+            def coletar():
+                p = {}
+                if v_matriz.get(): p["matriz"] = v_matriz.get()
+                if v_sub.get():    p["submatriz"] = v_sub.get()
+                if v_rar.get():    p["raridade"] = v_rar.get()
+                return p
+
+        return frame, coletar
+
     # ── Aba Biblioteca ────────────────────────────────────────────────────────
 
+    # Coleções e rótulos de lista por tipo (definidos em _construir_aba_biblioteca).
     def _construir_aba_biblioteca(self, frame: ttk.Frame) -> None:
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(1, weight=1)
-        self._conjuracoes_cache: list[dict] = []
-        self._idx_editando: int | None = None
+        self._bib_cache: list[dict] = []
+        self._bib_idx: int | None = None
+        self._forms: dict[str, dict] = {}
+        self._bib_label_para_tipo: dict[str, str] = {}
 
+        # (tipo, rótulo, coleção, builder do form, rótulo do item na lista)
+        tipos = [
+            ("conjurador", "Conjuradores", biblioteca.CONJURADORES,
+             self._construir_form_conjurador,
+             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('escola', '?')}"),
+            ("reliquia", "Relíquias", biblioteca.RELIQUIAS,
+             self._construir_form_reliquia,
+             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('matriz', '?')}"),
+            ("conjuracao", "Conjurações", biblioteca.CONJURACOES,
+             self._construir_form_conjuracao,
+             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('matriz', '?')}"),
+            ("familiar", "Familiares", biblioteca.FAMILIARES,
+             self._construir_form_familiar,
+             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('raridade', '?')}"),
+        ]
+
+        # ── Barra superior: seletor de tipo + info + atualizar ──
         topo = ttk.Frame(frame)
         topo.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-        topo.columnconfigure(0, weight=1)
-        self.var_bib_info = tk.StringVar(value="Conjurações criadas")
+        topo.columnconfigure(2, weight=1)
+        ttk.Label(topo, text="Tipo", style="Field.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 6))
+        self.var_bib_tipo = tk.StringVar()
+        combo_tipo = ttk.Combobox(
+            topo, textvariable=self.var_bib_tipo, state="readonly", width=16,
+            values=[label for _, label, _, _, _ in tipos])
+        combo_tipo.grid(row=0, column=1, sticky="w")
+        combo_tipo.bind("<<ComboboxSelected>>", self._trocar_tipo_biblioteca)
+        self.var_bib_info = tk.StringVar(value="")
         ttk.Label(topo, textvariable=self.var_bib_info,
-                  style="Field.TLabel").grid(row=0, column=0, sticky="w")
+                  style="Field.TLabel").grid(row=0, column=2, sticky="w", padx=12)
         ttk.Button(topo, text="↻ Atualizar",
-                   command=self._recarregar_biblioteca).grid(row=0, column=1, sticky="e")
+                   command=self._recarregar_biblioteca).grid(row=0, column=3, sticky="e")
 
+        # ── Lista de itens ──
         self.lista_biblioteca = tk.Listbox(
             frame, width=30, activestyle="none", font=(FONTE_UI, 11),
             background=SURFACE0, foreground=TEXT, borderwidth=0,
@@ -350,154 +546,415 @@ class GeradorGUI:
             selectbackground=MAUVE, selectforeground=CRUST,
         )
         self.lista_biblioteca.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
-        self.lista_biblioteca.bind("<<ListboxSelect>>", self._ao_selecionar_conjuracao)
+        self.lista_biblioteca.bind("<<ListboxSelect>>", self._ao_selecionar_item)
 
-        self._construir_form_conjuracao(frame)
+        # ── Container que empilha os forms (um visível por vez) ──
+        cont = ttk.Frame(frame)
+        cont.grid(row=1, column=1, sticky="nsew")
+        cont.columnconfigure(0, weight=1)
+        cont.rowconfigure(0, weight=1)
+
+        for tipo, label, colecao, builder, rotulo in tipos:
+            form_frame, popular, coletar = builder(cont)
+            form_frame.grid(row=0, column=0, sticky="nsew")
+            form_frame.grid_remove()
+            self._forms[tipo] = {
+                "frame": form_frame, "popular": popular, "coletar": coletar,
+                "colecao": colecao, "rotulo": rotulo, "label": label,
+            }
+            self._bib_label_para_tipo[label] = tipo
+
+        # Tipo inicial: Conjurações (preserva o comportamento anterior).
+        self._bib_tipo = "conjuracao"
+        self.var_bib_tipo.set("Conjurações")
+        self._forms["conjuracao"]["frame"].grid()
         self._recarregar_biblioteca()
 
-    def _construir_form_conjuracao(self, parent: ttk.Frame) -> None:
-        """Formulário de edição da conjuração selecionada (4 colunas)."""
-        form = ttk.Frame(parent)
-        form.grid(row=1, column=1, sticky="nsew")
-        form.columnconfigure(1, weight=1)
-        form.columnconfigure(3, weight=1)
-        form.rowconfigure(8, weight=1)
-
-        def lbl(r: int, c: int, txt: str) -> None:
-            ttk.Label(form, text=txt, style="Field.TLabel").grid(
-                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
-
-        self.f_nome = tk.StringVar()
-        self.f_matriz = tk.StringVar()
-        self.f_submatriz = tk.StringVar()
-        self.f_nivel = tk.IntVar(value=0)
-        self.f_alcance = tk.StringVar()
-        self.f_area = tk.StringVar()
-        self.f_tem_dano = tk.BooleanVar()
-        self.f_dado_x = tk.IntVar(value=1)
-        self.f_dado_y = tk.StringVar(value="6")
-        self.f_custo = tk.IntVar(value=0)
-        self.f_ganho = tk.IntVar(value=0)
-        self.f_efeitos = tk.StringVar()
-
-        def combo(var, valores, w=14):
-            return ttk.Combobox(form, textvariable=var, values=valores,
-                                state="readonly", width=w)
-
-        lbl(0, 0, "Nome")
-        ttk.Entry(form, textvariable=self.f_nome).grid(
-            row=0, column=1, columnspan=3, sticky="ew", pady=3)
-
-        lbl(1, 0, "Matriz");    combo(self.f_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
-        lbl(1, 2, "Submatriz"); combo(self.f_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
-
-        lbl(2, 0, "Nível")
-        ttk.Spinbox(form, from_=0, to=3, textvariable=self.f_nivel, width=6).grid(row=2, column=1, sticky="w", pady=3)
-        lbl(2, 2, "Alcance");   combo(self.f_alcance, ALCANCES).grid(row=2, column=3, sticky="ew", pady=3)
-
-        lbl(3, 0, "Área");      combo(self.f_area, AREAS).grid(row=3, column=1, sticky="ew", pady=3)
-        ttk.Checkbutton(form, text="Causa dano", variable=self.f_tem_dano).grid(
-            row=3, column=3, sticky="w", pady=3)
-
-        lbl(4, 0, "Dado X")
-        ttk.Spinbox(form, from_=1, to=6, textvariable=self.f_dado_x, width=6).grid(row=4, column=1, sticky="w", pady=3)
-        lbl(4, 2, "Dado Y");    combo(self.f_dado_y, _DADO_Y, w=6).grid(row=4, column=3, sticky="w", pady=3)
-
-        lbl(5, 0, "Custo Conexão")
-        ttk.Spinbox(form, from_=0, to=999, textvariable=self.f_custo, width=6).grid(row=5, column=1, sticky="w", pady=3)
-        lbl(5, 2, "Ganho Conexão")
-        ttk.Spinbox(form, from_=0, to=999, textvariable=self.f_ganho, width=6).grid(row=5, column=3, sticky="w", pady=3)
-
-        lbl(6, 0, "Efeitos")
-        ttk.Entry(form, textvariable=self.f_efeitos).grid(
-            row=6, column=1, columnspan=3, sticky="ew", pady=3)
-        ttk.Label(form, text="(separados por vírgula — ex.: IMOBILIZADO, EMPURRAR)",
-                  style="Sub.TLabel").grid(row=7, column=1, columnspan=3, sticky="w")
-
-        self.f_descricao = tk.Text(
-            form, height=6, wrap=tk.WORD, font=(FONTE_UI, 10),
+    def _mk_text(self, parent: ttk.Frame, height: int = 4) -> tk.Text:
+        """Cria um Text de prosa no padrão visual dos forms."""
+        return tk.Text(
+            parent, height=height, wrap=tk.WORD, font=(FONTE_UI, 10),
             background=SURFACE0, foreground=TEXT, insertbackground=MAUVE,
             relief="flat", borderwidth=0, highlightthickness=1,
             highlightbackground=SURFACE1, highlightcolor=MAUVE, padx=8, pady=6,
         )
-        self.f_descricao.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(6, 4))
 
+    def _botoes_form(self, form: ttk.Frame, row: int) -> None:
+        """Linha de botões Salvar/Excluir (operam sobre o tipo ativo)."""
         botoes = ttk.Frame(form)
-        botoes.grid(row=9, column=0, columnspan=4, sticky="ew", pady=(6, 0))
+        botoes.grid(row=row, column=0, columnspan=4, sticky="ew", pady=(6, 0))
         ttk.Button(botoes, text="✔ Salvar alterações", style="Accent.TButton",
-                   command=self._salvar_conjuracao_editada).pack(side=tk.LEFT)
+                   command=self._salvar_item_editado).pack(side=tk.LEFT)
         ttk.Button(botoes, text="🗑 Excluir",
-                   command=self._excluir_conjuracao).pack(side=tk.LEFT, padx=6)
+                   command=self._excluir_item).pack(side=tk.LEFT, padx=6)
+
+    @staticmethod
+    def _csv(valor: str) -> list[str]:
+        return [x.strip() for x in valor.split(",") if x.strip()]
+
+    # ── Form: Conjuração ────────────────────────────────────────────────────
+    def _construir_form_conjuracao(self, parent: ttk.Frame):
+        form = ttk.Frame(parent)
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+        form.rowconfigure(8, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(form, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
+
+        def combo(var, valores, w=14):
+            return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
+
+        v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
+        v_nivel = tk.IntVar(value=0); v_alcance = tk.StringVar(); v_area = tk.StringVar()
+        v_tem_dano = tk.BooleanVar(); v_dado_x = tk.IntVar(value=1); v_dado_y = tk.StringVar(value="6")
+        v_custo = tk.IntVar(value=0); v_ganho = tk.IntVar(value=0); v_efeitos = tk.StringVar()
+
+        lbl(0, 0, "Nome")
+        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
+        lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
+        lbl(2, 0, "Nível")
+        ttk.Spinbox(form, from_=0, to=3, textvariable=v_nivel, width=6).grid(row=2, column=1, sticky="w", pady=3)
+        lbl(2, 2, "Alcance");   combo(v_alcance, ALCANCES).grid(row=2, column=3, sticky="ew", pady=3)
+        lbl(3, 0, "Área");      combo(v_area, AREAS).grid(row=3, column=1, sticky="ew", pady=3)
+        ttk.Checkbutton(form, text="Causa dano", variable=v_tem_dano).grid(row=3, column=3, sticky="w", pady=3)
+        lbl(4, 0, "Dado X")
+        ttk.Spinbox(form, from_=1, to=6, textvariable=v_dado_x, width=6).grid(row=4, column=1, sticky="w", pady=3)
+        lbl(4, 2, "Dado Y");    combo(v_dado_y, _DADO_Y, w=6).grid(row=4, column=3, sticky="w", pady=3)
+        lbl(5, 0, "Custo Conexão")
+        ttk.Spinbox(form, from_=0, to=999, textvariable=v_custo, width=6).grid(row=5, column=1, sticky="w", pady=3)
+        lbl(5, 2, "Ganho Conexão")
+        ttk.Spinbox(form, from_=0, to=999, textvariable=v_ganho, width=6).grid(row=5, column=3, sticky="w", pady=3)
+        lbl(6, 0, "Efeitos")
+        ttk.Entry(form, textvariable=v_efeitos).grid(row=6, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Label(form, text="(separados por vírgula — ex.: IMOBILIZADO, EMPURRAR)",
+                  style="Sub.TLabel").grid(row=7, column=1, columnspan=3, sticky="w")
+        t_descricao = self._mk_text(form, height=6)
+        t_descricao.grid(row=8, column=0, columnspan=4, sticky="nsew", pady=(6, 4))
+        self._botoes_form(form, 9)
+
+        def popular(c):
+            dd = c.get("dado_dano") or {}
+            v_nome.set(c.get("nome", "")); v_matriz.set(c.get("matriz", ""))
+            v_submatriz.set(c.get("submatriz", "NENHUMA"))
+            v_nivel.set(int(c.get("nivel", 0) or 0))
+            v_alcance.set(c.get("alcance", "")); v_area.set(c.get("area", ""))
+            v_tem_dano.set(bool(c.get("tem_dano")))
+            v_dado_x.set(int(dd.get("x", 1) or 1)); v_dado_y.set(str(dd.get("y", 6)))
+            v_custo.set(int(c.get("conexao_custo", 0) or 0))
+            v_ganho.set(int(c.get("conexao_ganho", 0) or 0))
+            v_efeitos.set(", ".join(c.get("efeitos") or []))
+            t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", c.get("descricao", ""))
+
+        def coletar(c):
+            c["nome"] = v_nome.get().strip() or c.get("nome", "")
+            c["matriz"] = v_matriz.get(); c["submatriz"] = v_submatriz.get()
+            c["alcance"] = v_alcance.get(); c["area"] = v_area.get()
+            c["tem_dano"] = bool(v_tem_dano.get())
+            c["efeitos"] = [e.upper() for e in self._csv(v_efeitos.get())]
+            c["descricao"] = t_descricao.get("1.0", tk.END).strip()
+            try:
+                c["nivel"] = int(v_nivel.get())
+                c["dado_dano"] = {"x": int(v_dado_x.get()), "y": int(v_dado_y.get())}
+                c["conexao_custo"] = int(v_custo.get())
+                c["conexao_ganho"] = int(v_ganho.get())
+            except (tk.TclError, ValueError):
+                self.var_status.set("✗ Valores numéricos inválidos — verifique nível/dado/conexão.")
+                return False
+            return True
+
+        return form, popular, coletar
+
+    # ── Form: Conjurador ──────────────────────────────────────────────────────
+    def _construir_form_conjurador(self, parent: ttk.Frame):
+        form = ttk.Frame(parent)
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+        form.rowconfigure(6, weight=1)
+        form.rowconfigure(8, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(form, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
+
+        v_nome = tk.StringVar(); v_nivel = tk.IntVar(value=1); v_idade = tk.StringVar()
+        v_escola = tk.StringVar(); v_pericias = tk.StringVar()
+        v_vida = tk.IntVar(value=0); v_conexao = tk.IntVar(value=0)
+        atr_chaves = [
+            ("brutalidade", "BRU"), ("rapidez", "RAP"), ("vitalidade", "VIT"),
+            ("influencia", "INF"), ("sintonia", "SIN"), ("astucia", "AST"),
+        ]
+        v_atr = {chave: tk.IntVar(value=1) for chave, _ in atr_chaves}
+
+        lbl(0, 0, "Nome")
+        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(1, 0, "Escola")
+        ttk.Combobox(form, textvariable=v_escola, values=ESCOLAS, state="readonly", width=14).grid(
+            row=1, column=1, sticky="ew", pady=3)
+        lbl(1, 2, "Nível")
+        ttk.Spinbox(form, from_=1, to=10, textvariable=v_nivel, width=6).grid(row=1, column=3, sticky="w", pady=3)
+        lbl(2, 0, "Idade")
+        ttk.Entry(form, textvariable=v_idade).grid(row=2, column=1, columnspan=3, sticky="ew", pady=3)
+
+        lbl(3, 0, "Atributos")
+        attrs = ttk.Frame(form)
+        attrs.grid(row=3, column=1, columnspan=3, sticky="w", pady=3)
+        for i, (chave, rotulo) in enumerate(atr_chaves):
+            ttk.Label(attrs, text=rotulo, style="Sub.TLabel").grid(row=0, column=i * 2, padx=(0, 2))
+            ttk.Spinbox(attrs, from_=0, to=3, textvariable=v_atr[chave], width=3).grid(
+                row=0, column=i * 2 + 1, padx=(0, 8))
+
+        lbl(4, 0, "Perícias")
+        ttk.Entry(form, textvariable=v_pericias).grid(row=4, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Label(form, text="(separadas por vírgula)", style="Sub.TLabel").grid(
+            row=5, column=1, columnspan=3, sticky="w")
+        # Vida e Conexão (calculados ao gerar; editáveis aqui)
+        vc = ttk.Frame(form); vc.grid(row=5, column=2, columnspan=2, sticky="e")
+        ttk.Label(vc, text="Vida", style="Sub.TLabel").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Spinbox(vc, from_=0, to=999, textvariable=v_vida, width=5).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(vc, text="Conexão", style="Sub.TLabel").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Spinbox(vc, from_=0, to=999, textvariable=v_conexao, width=5).pack(side=tk.LEFT)
+
+        lbl(6, 0, "História")
+        t_historia = self._mk_text(form, height=4)
+        t_historia.grid(row=6, column=1, columnspan=3, sticky="nsew", pady=3)
+        lbl(8, 0, "Aparência")
+        t_aparencia = self._mk_text(form, height=4)
+        t_aparencia.grid(row=8, column=1, columnspan=3, sticky="nsew", pady=3)
+        self._botoes_form(form, 9)
+
+        def popular(c):
+            atr = c.get("atributos") or {}
+            v_nome.set(c.get("nome", "")); v_idade.set(c.get("idade", ""))
+            v_escola.set(c.get("escola", ""))
+            v_nivel.set(int(c.get("nivel", 1) or 1))
+            for chave, _ in atr_chaves:
+                v_atr[chave].set(int(atr.get(chave, 1) or 0))
+            v_pericias.set(", ".join(c.get("pericias") or []))
+            v_vida.set(int(c.get("vida", 0) or 0)); v_conexao.set(int(c.get("conexao", 0) or 0))
+            t_historia.delete("1.0", tk.END); t_historia.insert("1.0", c.get("historia", ""))
+            t_aparencia.delete("1.0", tk.END); t_aparencia.insert("1.0", c.get("aparencia", ""))
+
+        def coletar(c):
+            c["nome"] = v_nome.get().strip() or c.get("nome", "")
+            c["idade"] = v_idade.get(); c["escola"] = v_escola.get()
+            c["pericias"] = self._csv(v_pericias.get())
+            c["historia"] = t_historia.get("1.0", tk.END).strip()
+            c["aparencia"] = t_aparencia.get("1.0", tk.END).strip()
+            try:
+                c["nivel"] = int(v_nivel.get())
+                c["atributos"] = {chave: int(v_atr[chave].get()) for chave, _ in atr_chaves}
+                c["vida"] = int(v_vida.get()); c["conexao"] = int(v_conexao.get())
+            except (tk.TclError, ValueError):
+                self.var_status.set("✗ Valores numéricos inválidos — verifique nível/atributos/vida.")
+                return False
+            return True
+
+        return form, popular, coletar
+
+    # ── Form: Relíquia ────────────────────────────────────────────────────────
+    def _construir_form_reliquia(self, parent: ttk.Frame):
+        form = ttk.Frame(parent)
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+        form.rowconfigure(10, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(form, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
+
+        def combo(var, valores, w=14):
+            return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
+
+        v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
+        v_nucleo = tk.StringVar(); v_vetor = tk.StringVar(); v_nivel = tk.StringVar()
+        v_forma = tk.StringVar(); v_alcance = tk.StringVar(); v_area = tk.StringVar()
+        v_tipos = tk.StringVar(); v_dado_x = tk.IntVar(value=1); v_dado_y = tk.StringVar(value="6")
+        v_mult = tk.IntVar(value=2); v_conjs = tk.StringVar()
+        v_fam_nome = tk.StringVar()
+
+        lbl(0, 0, "Nome")
+        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
+        lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
+        lbl(2, 0, "Núcleo");    combo(v_nucleo, NUCLEOS).grid(row=2, column=1, sticky="ew", pady=3)
+        lbl(2, 2, "Vetor");     combo(v_vetor, VETORES).grid(row=2, column=3, sticky="ew", pady=3)
+        lbl(3, 0, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=3, column=1, sticky="ew", pady=3)
+        lbl(3, 2, "Forma")
+        ttk.Entry(form, textvariable=v_forma).grid(row=3, column=3, sticky="ew", pady=3)
+        lbl(4, 0, "Alcance");   combo(v_alcance, ALCANCES).grid(row=4, column=1, sticky="ew", pady=3)
+        lbl(4, 2, "Área");      combo(v_area, AREAS).grid(row=4, column=3, sticky="ew", pady=3)
+        lbl(5, 0, "Tipos de dano")
+        ttk.Entry(form, textvariable=v_tipos).grid(row=5, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Label(form, text="(vírgula — ex.: CORTE, IMPACTO)", style="Sub.TLabel").grid(
+            row=6, column=1, columnspan=3, sticky="w")
+        lbl(7, 0, "Dado X")
+        ttk.Spinbox(form, from_=1, to=6, textvariable=v_dado_x, width=6).grid(row=7, column=1, sticky="w", pady=3)
+        lbl(7, 2, "Dado Y");    combo(v_dado_y, _DADO_Y, w=6).grid(row=7, column=3, sticky="w", pady=3)
+        lbl(8, 0, "Mult. crítico")
+        ttk.Spinbox(form, from_=2, to=4, textvariable=v_mult, width=6).grid(row=8, column=1, sticky="w", pady=3)
+        lbl(9, 0, "Conjurações")
+        ttk.Entry(form, textvariable=v_conjs, state="readonly").grid(
+            row=9, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(10, 0, "Descrição")
+        t_descricao = self._mk_text(form, height=4)
+        t_descricao.grid(row=10, column=1, columnspan=3, sticky="nsew", pady=3)
+        lbl(11, 0, "Familiar")
+        ttk.Entry(form, textvariable=v_fam_nome).grid(row=11, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(12, 0, "Fam. descrição")
+        t_fam_desc = self._mk_text(form, height=3)
+        t_fam_desc.grid(row=12, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(13, 0, "Fam. comport.")
+        t_fam_comp = self._mk_text(form, height=3)
+        t_fam_comp.grid(row=13, column=1, columnspan=3, sticky="ew", pady=3)
+        self._botoes_form(form, 14)
+
+        def popular(r):
+            dd = r.get("dado_dano") or {}
+            v_nome.set(r.get("nome", "")); v_matriz.set(r.get("matriz", ""))
+            v_submatriz.set(r.get("submatriz", "NENHUMA")); v_nucleo.set(r.get("nucleo", ""))
+            v_vetor.set(r.get("vetor", "")); v_nivel.set(r.get("nivel", ""))
+            v_forma.set(r.get("forma", "")); v_alcance.set(r.get("alcance", ""))
+            v_area.set(r.get("area", "")); v_tipos.set(", ".join(r.get("tipos_dano") or []))
+            v_dado_x.set(int(dd.get("x", 1) or 1)); v_dado_y.set(str(dd.get("y", 6)))
+            v_mult.set(int(r.get("mult_critico", 2) or 2))
+            nomes_conj = ", ".join(
+                (x.get("nome", "") if isinstance(x, dict) else str(x))
+                for x in (r.get("conjuracoes") or []))
+            v_conjs.set(nomes_conj)
+            v_fam_nome.set(r.get("familiar_nome", ""))
+            t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", r.get("descricao", ""))
+            t_fam_desc.delete("1.0", tk.END); t_fam_desc.insert("1.0", r.get("familiar_descricao", ""))
+            t_fam_comp.delete("1.0", tk.END); t_fam_comp.insert("1.0", r.get("familiar_comportamento", ""))
+
+        def coletar(r):
+            r["nome"] = v_nome.get().strip() or r.get("nome", "")
+            r["matriz"] = v_matriz.get(); r["submatriz"] = v_submatriz.get()
+            r["nucleo"] = v_nucleo.get(); r["vetor"] = v_vetor.get()
+            r["nivel"] = v_nivel.get(); r["forma"] = v_forma.get()
+            r["alcance"] = v_alcance.get(); r["area"] = v_area.get()
+            r["tipos_dano"] = [t.upper() for t in self._csv(v_tipos.get())]
+            r["familiar_nome"] = v_fam_nome.get()
+            r["descricao"] = t_descricao.get("1.0", tk.END).strip()
+            r["familiar_descricao"] = t_fam_desc.get("1.0", tk.END).strip()
+            r["familiar_comportamento"] = t_fam_comp.get("1.0", tk.END).strip()
+            # 'conjuracoes' guarda dicts completos — não é editado aqui.
+            try:
+                r["dado_dano"] = {"x": int(v_dado_x.get()), "y": int(v_dado_y.get())}
+                r["mult_critico"] = int(v_mult.get())
+            except (tk.TclError, ValueError):
+                self.var_status.set("✗ Valores numéricos inválidos — verifique dado/mult. crítico.")
+                return False
+            return True
+
+        return form, popular, coletar
+
+    # ── Form: Familiar ────────────────────────────────────────────────────────
+    def _construir_form_familiar(self, parent: ttk.Frame):
+        form = ttk.Frame(parent)
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+        form.rowconfigure(4, weight=1)
+        form.rowconfigure(6, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(form, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
+
+        def combo(var, valores, w=14):
+            return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
+
+        v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
+        v_raridade = tk.StringVar(); v_habilidades = tk.StringVar()
+
+        lbl(0, 0, "Nome")
+        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
+        lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
+        lbl(2, 0, "Raridade");  combo(v_raridade, RARIDADES).grid(row=2, column=1, sticky="ew", pady=3)
+        lbl(3, 0, "Habilidades")
+        ttk.Entry(form, textvariable=v_habilidades).grid(row=3, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(4, 0, "Descrição")
+        t_descricao = self._mk_text(form, height=5)
+        t_descricao.grid(row=4, column=1, columnspan=3, sticky="nsew", pady=3)
+        lbl(6, 0, "Comportamento")
+        t_comport = self._mk_text(form, height=5)
+        t_comport.grid(row=6, column=1, columnspan=3, sticky="nsew", pady=3)
+        self._botoes_form(form, 7)
+
+        def popular(c):
+            v_nome.set(c.get("nome", "")); v_matriz.set(c.get("matriz", ""))
+            v_submatriz.set(c.get("submatriz", "NENHUMA")); v_raridade.set(c.get("raridade", ""))
+            v_habilidades.set(", ".join(c.get("habilidades") or []))
+            t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", c.get("descricao", ""))
+            t_comport.delete("1.0", tk.END); t_comport.insert("1.0", c.get("comportamento", ""))
+
+        def coletar(c):
+            c["nome"] = v_nome.get().strip() or c.get("nome", "")
+            c["matriz"] = v_matriz.get(); c["submatriz"] = v_submatriz.get()
+            c["raridade"] = v_raridade.get()
+            c["habilidades"] = self._csv(v_habilidades.get())
+            c["descricao"] = t_descricao.get("1.0", tk.END).strip()
+            c["comportamento"] = t_comport.get("1.0", tk.END).strip()
+            return True
+
+        return form, popular, coletar
+
+    # ── Lista / edição genéricas (operam sobre o tipo ativo) ──────────────────
+    def _trocar_tipo_biblioteca(self, _event: object = None) -> None:
+        tipo = self._bib_label_para_tipo.get(self.var_bib_tipo.get(), "conjuracao")
+        for info in self._forms.values():
+            info["frame"].grid_remove()
+        self._bib_tipo = tipo
+        self._forms[tipo]["frame"].grid()
+        self._bib_idx = None
+        self._recarregar_biblioteca()
 
     def _recarregar_biblioteca(self) -> None:
-        self._conjuracoes_cache = biblioteca.carregar()
+        info = self._forms[self._bib_tipo]
+        self._bib_cache = info["colecao"].carregar()
         self.lista_biblioteca.delete(0, tk.END)
-        for c in self._conjuracoes_cache:
-            self.lista_biblioteca.insert(
-                tk.END, f"  {c.get('nome', '(sem nome)')}  ·  {c.get('matriz', '?')}")
-        n = len(self._conjuracoes_cache)
+        for item in self._bib_cache:
+            self.lista_biblioteca.insert(tk.END, "  " + info["rotulo"](item))
+        n = len(self._bib_cache)
+        rotulo = info["label"].lower()
         self.var_bib_info.set(
-            f"{n} conjuração(ões) — clique para editar" if n
-            else "Nenhuma conjuração ainda — gere uma na outra aba")
+            f"{n} {rotulo} — clique para editar" if n
+            else f"Nenhum item em {rotulo} — gere na aba correspondente")
 
-    def _ao_selecionar_conjuracao(self, _event: object = None) -> None:
+    def _ao_selecionar_item(self, _event: object = None) -> None:
         sel = self.lista_biblioteca.curselection()
         if not sel:
             return
-        self._idx_editando = sel[0]
-        c = self._conjuracoes_cache[sel[0]]
-        dd = c.get("dado_dano") or {}
-        self.f_nome.set(c.get("nome", ""))
-        self.f_matriz.set(c.get("matriz", ""))
-        self.f_submatriz.set(c.get("submatriz", "NENHUMA"))
-        self.f_nivel.set(int(c.get("nivel", 0) or 0))
-        self.f_alcance.set(c.get("alcance", ""))
-        self.f_area.set(c.get("area", ""))
-        self.f_tem_dano.set(bool(c.get("tem_dano")))
-        self.f_dado_x.set(int(dd.get("x", 1) or 1))
-        self.f_dado_y.set(str(dd.get("y", 6)))
-        self.f_custo.set(int(c.get("conexao_custo", 0) or 0))
-        self.f_ganho.set(int(c.get("conexao_ganho", 0) or 0))
-        self.f_efeitos.set(", ".join(c.get("efeitos") or []))
-        self.f_descricao.delete("1.0", tk.END)
-        self.f_descricao.insert("1.0", c.get("descricao", ""))
+        self._bib_idx = sel[0]
+        self._forms[self._bib_tipo]["popular"](self._bib_cache[sel[0]])
 
-    def _salvar_conjuracao_editada(self) -> None:
-        if self._idx_editando is None or not (0 <= self._idx_editando < len(self._conjuracoes_cache)):
-            self.var_status.set("Selecione uma conjuração na lista para editar.")
+    def _salvar_item_editado(self) -> None:
+        if self._bib_idx is None or not (0 <= self._bib_idx < len(self._bib_cache)):
+            self.var_status.set("Selecione um item na lista para editar.")
             return
-        c = self._conjuracoes_cache[self._idx_editando]
-        c["nome"] = self.f_nome.get().strip() or c.get("nome", "")
-        c["matriz"] = self.f_matriz.get()
-        c["submatriz"] = self.f_submatriz.get()
-        c["alcance"] = self.f_alcance.get()
-        c["area"] = self.f_area.get()
-        c["tem_dano"] = bool(self.f_tem_dano.get())
-        c["efeitos"] = [e.strip().upper() for e in self.f_efeitos.get().split(",") if e.strip()]
-        c["descricao"] = self.f_descricao.get("1.0", tk.END).strip()
-        try:
-            c["nivel"] = int(self.f_nivel.get())
-            c["dado_dano"] = {"x": int(self.f_dado_x.get()), "y": int(self.f_dado_y.get())}
-            c["conexao_custo"] = int(self.f_custo.get())
-            c["conexao_ganho"] = int(self.f_ganho.get())
-        except (tk.TclError, ValueError):
-            self.var_status.set("✗ Valores numéricos inválidos — verifique nível/dado/conexão.")
-            return
-        biblioteca.salvar_lista(self._conjuracoes_cache)
-        idx = self._idx_editando
+        info = self._forms[self._bib_tipo]
+        item = self._bib_cache[self._bib_idx]
+        if info["coletar"](item) is False:
+            return  # erro numérico já reportado no status
+        info["colecao"].salvar_lista(self._bib_cache)
+        idx = self._bib_idx
         self._recarregar_biblioteca()
         self.lista_biblioteca.selection_set(idx)
-        self.var_status.set(f"✓ Conjuração salva: {c['nome']}")
+        self.var_status.set(f"✓ Salvo: {item.get('nome', '?')}")
 
-    def _excluir_conjuracao(self) -> None:
-        if self._idx_editando is None or not (0 <= self._idx_editando < len(self._conjuracoes_cache)):
-            self.var_status.set("Selecione uma conjuração para excluir.")
+    def _excluir_item(self) -> None:
+        if self._bib_idx is None or not (0 <= self._bib_idx < len(self._bib_cache)):
+            self.var_status.set("Selecione um item para excluir.")
             return
-        removida = self._conjuracoes_cache.pop(self._idx_editando)
-        biblioteca.salvar_lista(self._conjuracoes_cache)
-        self._idx_editando = None
+        info = self._forms[self._bib_tipo]
+        removido = self._bib_cache.pop(self._bib_idx)
+        info["colecao"].salvar_lista(self._bib_cache)
+        self._bib_idx = None
         self._recarregar_biblioteca()
-        self.var_status.set(f"✓ Conjuração excluída: {removida.get('nome', '?')}")
+        self.var_status.set(f"✓ Excluído: {removido.get('nome', '?')}")
 
     def _ao_trocar_aba(self, _event: object = None) -> None:
         # Ao abrir a aba Biblioteca, recarrega para refletir o que foi gerado.
@@ -525,6 +982,7 @@ class GeradorGUI:
         saida_ficha: scrolledtext.ScrolledText,
         btn: ttk.Button,
         nb_saida: ttk.Notebook,
+        coletar_prefs=None,
     ) -> None:
         conceito = entrada.get("1.0", tk.END).strip()
         if not conceito:
@@ -535,6 +993,8 @@ class GeradorGUI:
         url     = self.var_url.get().strip() or None
         num_ctx = self.var_ctx.get()
         nivel   = var_nivel.get() if var_nivel else 1
+        # Preferências lidas AQUI (thread principal); a thread só recebe o dict.
+        prefs   = coletar_prefs() if coletar_prefs else None
 
         btn.configure(state=tk.DISABLED, text="⏳ Gerando…")
         self.var_status.set(f"Gerando {tipo}… isso pode levar alguns segundos.")
@@ -551,9 +1011,9 @@ class GeradorGUI:
             try:
                 _ollama_mod.NUM_CTX = num_ctx
                 if tipo == "conjurador":
-                    resultado = gerar_conjurador(conceito, nivel, modelo, url)
+                    resultado = gerar_conjurador(conceito, nivel, modelo, url, prefs=prefs)
                 else:
-                    resultado = _GERADORES[tipo](conceito, modelo, url)
+                    resultado = _GERADORES[tipo](conceito, modelo, url, prefs=prefs)
                 fila.put(("ok", resultado))
                 print("[gui] geração concluída OK", file=sys.stderr, flush=True)
             except ErroOllama as e:
