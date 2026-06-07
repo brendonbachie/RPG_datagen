@@ -16,6 +16,41 @@ Sem dependências de terceiros além do Python padrão (`urllib`, `tkinter`, `js
 
 ---
 
+## 0 — Ambiente virtual (venv)
+
+O projeto **não** tem dependências de runtime além da stdlib, mas uma venv deixa
+os testes (`pytest`) isolados e o setup reproduzível em qualquer máquina.
+
+### Opção A — com `uv` (recomendado, **sem sudo**, GUI inclusa)
+
+O `tkinter` (usado pela GUI) **não** é instalável via pip. A forma mais simples
+de tê-lo sem privilégios de administrador é usar um Python "standalone" do
+[`uv`](https://docs.astral.sh/uv/), que **já vem com tkinter embutido**:
+
+```bash
+uv python install 3.12               # baixa um CPython com tkinter (Tk 9), sem sudo
+uv venv --python 3.12 .venv          # cria a venv a partir desse Python
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+uv pip install -r requirements-dev.txt
+```
+
+Pronto — `python gerador.py ...`, `python gui.py` e `pytest tests/` rodam todos
+pela venv, **incluindo a GUI**, sem instalar nada no sistema.
+
+### Opção B — venv padrão + tkinter do sistema (requer sudo)
+
+```bash
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+sudo apt-get install -y python3-tk   # tkinter do sistema (precisa de sudo)
+```
+
+> **WSL2:** a janela da GUI requer WSLg (Windows 11) ou um servidor X (ex.:
+> VcXsrv no Windows 10).
+
+---
+
 ## 1 — Instalar o Ollama
 
 **Windows / WSL2:**
@@ -142,7 +177,10 @@ RPG/
 │   ├── loader.py       # Carrega todos os .txt de regras no system prompt
 │   ├── regras.py       # Regras hard-coded: validação, VIDA, CONEXÃO, dados
 │   ├── schemas.py      # JSON Schemas para saída estruturada do Ollama
+│   ├── biblioteca.py   # Lista persistente de conjurações (habilidades disponíveis)
 │   └── ollama.py       # Cliente HTTP (urllib) para a API do Ollama
+├── biblioteca/
+│   └── conjuracoes.json # Banco acumulado de conjurações geradas (criado em runtime)
 ├── tests/
 │   └── test_regras.py  # Testes pytest (sem Ollama)
 ├── Modelfile           # Configuração do modelo com num_ctx=16384
@@ -186,3 +224,17 @@ Resultado JSON final
 
 O LLM **nunca** calcula VIDA, CONEXÃO, a quantidade de perícias, nem valida a
 distribuição de atributos — tudo isso é feito deterministicamente em Python.
+
+### Habilidades = conjurações (biblioteca compartilhada)
+
+As **habilidades** de uma criação são sempre **conjurações**. O sistema mantém
+uma lista persistente em `biblioteca/conjuracoes.json`:
+
+- Toda vez que uma **conjuração** é gerada (CLI, GUI ou indiretamente), ela é
+  **adicionada à biblioteca**.
+- Criações que possuem habilidades — **familiar** (`habilidades`) e **relíquia**
+  (`conjuracoes`) — **selecionam** suas habilidades da biblioteca, preferindo a
+  mesma matriz. Se a biblioteca for **insuficiente**, novas conjurações são
+  geradas para preencher (e também entram na lista).
+
+O caminho do arquivo pode ser trocado com a variável `RPG_BIBLIOTECA`.

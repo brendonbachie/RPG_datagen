@@ -1,0 +1,12 @@
+# Ambiente virtual
+.venv/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+
+# Cache do pytest
+.pytest_cache/
+
+# Banco de conjurações gerado em runtime (descomente se NÃO quiser versionar)
+# biblioteca/conjuracoes.json

@@ -1,14 +1,8 @@
 # JSON Schemas para saída estruturada via Ollama.
 # Cada schema é passado no campo "format" da chamada à API.
 
-# PERÍCIAS vêm de regras.py (fonte única da verdade das regras).
-from engine.regras import PERICIAS
-
-MATRIZES = [
-    "INCÊNDIO", "INUNDAÇÃO", "TEMPESTADE", "CICLONE", "TERREMOTO",
-    "NEUTRO", "MARCIAL", "FAUNA", "FLORA", "GUARDIÃO", "FÁBULA",
-    "SÓLIDO", "MALEÁVEL", "ESCURO", "ESPIRITUAL", "MENTAL",
-]
+# PERÍCIAS, RARIDADES, MATRIZES e EFEITOS vêm de regras.py (fonte única).
+from engine.regras import EFEITOS, MATRIZES, PERICIAS, RARIDADES
 
 SUBMATRIZES = ["ONDA", "FÚRIA", "ESPORO", "TEMPERATURA", "ESPIRAL", "NENHUMA"]
 
@@ -108,7 +102,8 @@ SCHEMA_CONJURACAO = {
     ],
     "properties": {
         "nome":           {"type": "string"},
-        "descricao":      {"type": "string"},
+        # minLength evita descrição vazia ou eco do conceito.
+        "descricao":      {"type": "string", "minLength": 80},
         "matriz":         {"type": "string", "enum": MATRIZES},
         "submatriz":      {"type": "string", "enum": SUBMATRIZES},
         "nivel":          {"type": "integer", "minimum": 0, "maximum": 3},
@@ -119,9 +114,9 @@ SCHEMA_CONJURACAO = {
         # tem_dano=false → dado_dano pode ser ignorado (conjuração utilitária)
         "tem_dano":       {"type": "boolean"},
         "dado_dano":      _DADO_DANO_SCHEMA,
-        # efeitos: condições (IMOBILIZADO, CAÍDO, INCENDIADO…) e/ou manobras
-        # (EMPURRAR, DERRUBAR, AGARRAR…) que a conjuração executa — tudo junto
-        "efeitos":        {"type": "array", "items": {"type": "string"}},
+        # efeitos: SOMENTE condições (IMOBILIZADO, CAÍDO…) e/ou manobras
+        # (EMPURRAR, DERRUBAR…) — restrito por enum para não vazar texto livre.
+        "efeitos":        {"type": "array", "items": {"type": "string", "enum": EFEITOS}},
     },
 }
 
@@ -130,12 +125,13 @@ SCHEMA_FAMILIAR = {
     "required": ["nome", "descricao", "comportamento", "matriz", "submatriz", "habilidades", "raridade"],
     "properties": {
         "nome":          {"type": "string"},
-        "descricao":     {"type": "string"},
-        "comportamento": {"type": "string"},
+        # minLength incentiva descrições substanciais (evita 'O Lobo da Noite').
+        "descricao":     {"type": "string", "minLength": 120},
+        "comportamento": {"type": "string", "minLength": 120},
         "matriz":        {"type": "string", "enum": MATRIZES},
         "submatriz":     {"type": "string", "enum": SUBMATRIZES},
         "habilidades":   {"type": "array", "items": {"type": "string"}, "minItems": 1},
-        "raridade":      {"type": "string", "enum": ["COMUM", "INCOMUM", "RARO", "LENDÁRIO"]},
+        "raridade":      {"type": "string", "enum": RARIDADES},
     },
 }
 

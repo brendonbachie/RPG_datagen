@@ -10,14 +10,63 @@ from engine.regras import (
     ATRIBUTOS,
     ESCOLAS_PERICIAS,
     PERICIAS,
+    RARIDADES,
     ajustar_pericias,
     calcular_conexao,
     calcular_vida,
     contar_pericias,
     corrigir_atributos,
+    matriz_no_conceito,
+    raridade_aleatoria,
+    raridade_no_conceito,
     rolar,
     validar_atributos,
 )
+
+
+@pytest.mark.parametrize("conceito,esperado", [
+    ("uma raposa da matriz guardião, deve ser um bicho raro", "GUARDIÃO"),
+    ("guardiao sem acento também", "GUARDIÃO"),
+    ("um espadachim de matriz incêndio", "INCÊNDIO"),
+    ("criatura mental e enigmática", "MENTAL"),
+    ("uma serpente feita de sombras", None),   # 'sombras' não é nome de matriz
+])
+def test_matriz_no_conceito(conceito, esperado):
+    assert matriz_no_conceito(conceito) == esperado
+
+
+def test_raridade_aleatoria_dentro_do_enum():
+    rng = random.Random(0)
+    for _ in range(50):
+        assert raridade_aleatoria(rng) in RARIDADES
+
+
+def test_raridade_aleatoria_deterministica_por_seed():
+    seq1 = [raridade_aleatoria(random.Random(42)) for _ in range(5)]
+    seq2 = [raridade_aleatoria(random.Random(42)) for _ in range(5)]
+    assert seq1 == seq2
+
+
+@pytest.mark.parametrize("conceito,esperado", [
+    ("uma raposa da matriz guardião, deve ser um bixo raro", "RARO"),
+    ("um dragão lendário das montanhas", "LENDÁRIO"),
+    ("criatura lendaria sem acento", "LENDÁRIO"),
+    ("uma planta incomum do pântano", "INCOMUM"),
+    ("um rato comum de esgoto", "COMUM"),
+    ("ratos comuns por toda parte", "COMUM"),
+    ("bestas raras e raríssimas", "RARO"),
+    # Sem menção de raridade → None (cai no sorteio)
+    ("uma serpente feita de sombras", None),
+    # Não deve casar 'rar' dentro de outras palavras
+    ("um ser capaz de preparar emboscadas", None),
+])
+def test_raridade_no_conceito(conceito, esperado):
+    assert raridade_no_conceito(conceito) == esperado
+
+
+def test_raridade_no_conceito_prioriza_incomum_sobre_comum():
+    # 'incomum' contém 'comum' como substring — não pode virar COMUM
+    assert raridade_no_conceito("uma fera incomum") == "INCOMUM"
 
 
 # ─── rolar ────────────────────────────────────────────────────────────────────

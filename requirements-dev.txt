@@ -1,0 +1,5 @@
+# Dependências de desenvolvimento (testes).
+# O projeto em si NÃO tem dependências de runtime além da stdlib do Python
+# (urllib, json, tkinter). A GUI usa tkinter, que vem do pacote de SISTEMA
+# python3-tk (não é instalável via pip).
+pytest>=7

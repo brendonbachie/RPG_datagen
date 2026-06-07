@@ -3,6 +3,22 @@ from typing import Any
 
 _LARGURA = 52
 
+# Mapa Unicode → ASCII (1:1, preserva alinhamento) para ambientes cujo
+# tkinter/fonte não possui glifos de box-drawing (ex.: Tk standalone no WSL,
+# onde '─'/'█' têm largura 0). Cada caractere vira exatamente 1 ASCII.
+_ASCII_MAP = str.maketrans({
+    "—": "-", "•": "*",
+    "─": "-", "═": "-", "│": "|", "║": "|",
+    "┼": "+", "╔": "+", "╗": "+", "╚": "+", "╝": "+", "╠": "+", "╣": "+",
+    "█": "#", "░": ".", "▌": "|",
+    "▲": "^", "▼": "v", "⚠": "!",
+})
+
+
+def _to_ascii(texto: str) -> str:
+    """Converte os caracteres de desenho para ASCII (mesma largura)."""
+    return texto.translate(_ASCII_MAP)
+
 
 def _linha(char: str = "─") -> str:
     return char * _LARGURA
@@ -43,6 +59,31 @@ def _wrap(texto: str, largura: int = 48, prefixo: str = "  ") -> str:
 
 def _secao(titulo: str) -> str:
     return f"▌ {titulo.upper()}"
+
+
+def _conjuracao_resumo(c: dict) -> list[str]:
+    """Linhas de texto (≤ largura) com a mecânica de uma conjuração/habilidade."""
+    nome  = str(c.get("nome", "?"))
+    nivel = c.get("nivel", "?")
+    alc   = c.get("alcance", "?")
+    area  = c.get("area", "?")
+    if c.get("tem_dano"):
+        dd = c.get("dado_dano") or {}
+        dano = f"{dd.get('x', '?')}d{dd.get('y', '?')}"
+    else:
+        dano = "utilitária"
+    custo = c.get("conexao_custo", 0)
+    ganho = c.get("conexao_ganho", 0)
+
+    linhas = [
+        f"  • {nome}"[: _LARGURA - 2],
+        f"      {dano} · N{nivel} · {alc}/{area}"[: _LARGURA - 2],
+        f"      Conexão -{custo} / +{ganho}"[: _LARGURA - 2],
+    ]
+    efeitos = [str(e) for e in (c.get("efeitos") or [])]
+    if efeitos:
+        linhas.append(f"      Efeitos: {', '.join(efeitos)}"[: _LARGURA - 2])
+    return linhas
 
 
 # ─── Conjurador ───────────────────────────────────────────────────────────────
@@ -175,7 +216,11 @@ def ficha_reliquia(d: dict[str, Any]) -> str:
         linhas.append("╠" + "═" * _LARGURA + "╣")
         linhas.append(_row(_secao("conjurações")))
         for c in conjs:
-            linhas.append(_row(f"  • {c}"))
+            if isinstance(c, dict):
+                for ln in _conjuracao_resumo(c):
+                    linhas.append(_row(ln))
+            else:
+                linhas.append(_row(f"  • {c}"))
 
     # Familiar de origem
     linhas.append("╠" + "═" * _LARGURA + "╣")
@@ -277,7 +322,11 @@ def ficha_familiar(d: dict[str, Any]) -> str:
         linhas.append("╠" + "═" * _LARGURA + "╣")
         linhas.append(_row(_secao("habilidades")))
         for h in habs:
-            linhas.append(_row(f"  • {h}"))
+            if isinstance(h, dict):
+                for ln in _conjuracao_resumo(h):
+                    linhas.append(_row(ln))
+            else:
+                linhas.append(_row(f"  • {h}"))
 
     if desc:
         linhas.append("╠" + "═" * _LARGURA + "╣")
@@ -307,12 +356,18 @@ _FORMATADORES = {
 }
 
 
-def formatar(tipo: str, dados: dict[str, Any]) -> str:
-    """Retorna a ficha formatada em texto para o tipo e dados fornecidos."""
+def formatar(tipo: str, dados: dict[str, Any], ascii_mode: bool = False) -> str:
+    """Retorna a ficha formatada em texto para o tipo e dados fornecidos.
+
+    Com ascii_mode=True, os caracteres de box-drawing são convertidos para
+    ASCII (para ambientes sem fonte com esses glifos). O padrão mantém o
+    visual Unicode (terminais e arquivos).
+    """
     fn = _FORMATADORES.get(tipo)
     if fn is None:
         return f"(sem formatador para '{tipo}')"
     try:
-        return fn(dados)
+        texto = fn(dados)
     except Exception as e:
         return f"(erro ao formatar ficha: {e})"
+    return _to_ascii(texto) if ascii_mode else texto

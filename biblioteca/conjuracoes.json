@@ -1,0 +1,72 @@
+[
+  {
+    "nome": "Vigília da Raposa",
+    "descricao": "",
+    "matriz": "GUARDIÃO",
+    "submatriz": "NENHUMA",
+    "nivel": 0,
+    "alcance": "",
+    "area": "",
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 1,
+      "y": 6
+    },
+    "conexao_custo": 0,
+    "conexao_ganho": 0,
+    "efeitos": []
+  },
+  {
+    "nome": "Salto Sombrio",
+    "descricao": "",
+    "matriz": "GUARDIÃO",
+    "submatriz": "NENHUMA",
+    "nivel": 0,
+    "alcance": "",
+    "area": "",
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 1,
+      "y": 6
+    },
+    "conexao_custo": 0,
+    "conexao_ganho": 0,
+    "efeitos": []
+  },
+  {
+    "nome": "Mordida Mortal",
+    "descricao": "",
+    "matriz": "GUARDIÃO",
+    "submatriz": "NENHUMA",
+    "nivel": 0,
+    "alcance": "",
+    "area": "",
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 1,
+      "y": 6
+    },
+    "conexao_custo": 0,
+    "conexao_ganho": 0,
+    "efeitos": []
+  },
+  {
+    "nome": "Torrente Turbulento",
+    "descricao": "Um jato de água esverdeada surge do chão, levantando poeira e folhas secas. O ar é preenchido com o som sonoro de gotas caindo.",
+    "matriz": "INUNDAÇÃO",
+    "submatriz": "ONDA",
+    "nivel": 1,
+    "alcance": "CURTO",
+    "area": "ZONA",
+    "conexao_custo": 0,
+    "conexao_ganho": 0,
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 2,
+      "y": 6
+    },
+    "efeitos": [
+      "CAÍDO"
+    ]
+  }
+]

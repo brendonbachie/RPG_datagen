@@ -10,8 +10,10 @@ Uso:
 """
 import argparse
 import json
+import re
 import sys
 
+from engine import biblioteca
 from engine.loader import carregar_regras
 from engine.ollama import ErroOllama, MODELO_PADRAO, chamar_ollama
 from engine.regras import (
@@ -19,8 +21,12 @@ from engine.regras import (
     calcular_conexao,
     calcular_vida,
     corrigir_atributos,
+    matriz_no_conceito,
+    raridade_aleatoria,
+    raridade_no_conceito,
     validar_atributos,
 )
+from engine.regras import RARIDADES
 from engine.schemas import SCHEMAS
 
 # Cache das regras — carregado uma vez por execução
@@ -44,6 +50,72 @@ def _system_prompt(tipo: str) -> str:
         "REGRAS COMPLETAS DO SISTEMA (fonte da verdade):\n\n"
         + _regras()
     )
+
+
+def _resolver_habilidades(
+    quantidade: int,
+    matriz: str,
+    conceito: str,
+    modelo: str | None,
+    url: str | None,
+) -> list[dict]:
+    """
+    Resolve as habilidades de uma criação a partir da biblioteca de conjurações.
+
+    Modo HÍBRIDO: reaproveita apenas conjurações da MESMA matriz e, para o que
+    faltar, gera novas conjurações temáticas (coerentes com a matriz) — cada
+    uma também é adicionada à biblioteca por `gerar_conjuracao`.
+    Retorna a lista de conjurações (dicts) escolhidas.
+    """
+    quantidade = max(0, quantidade)
+    selecionadas = biblioteca.selecionar(quantidade, matriz, estrito=True)
+    usados = {biblioteca.normalizar(c.get("nome", "")) for c in selecionadas}
+
+    tentativas = 0
+    while len(selecionadas) < quantidade and tentativas < quantidade + 3:
+        tentativas += 1
+        # Tema enxuto: remove a instrução ('Crie um familiar, baseado em…') e
+        # qualifativos ('deve ser raro'), deixando só a essência criativa.
+        tema = re.sub(
+            r"^\s*(crie|gere|fa[çc]a)\s+(um|uma)\s+\w+\s*,?\s*(basead[oa]\s+em\s+|com\s+base\s+em\s+|sobre\s+)?",
+            "", conceito, flags=re.IGNORECASE,
+        )
+        tema = re.sub(r",?\s*(deve ser|sendo|que (é|seja))\b.*$", "", tema, flags=re.IGNORECASE).strip()
+        conceito_conj = f"conjuração temática inspirada em {tema or conceito}"
+        nova = gerar_conjuracao(conceito_conj, modelo, url, matriz=matriz or None)
+        chave = biblioteca.normalizar(nova.get("nome", ""))
+        if not chave or chave in usados:
+            continue
+        usados.add(chave)
+        selecionadas.append(nova)
+
+    return selecionadas[:quantidade]
+
+
+def _forcar_matriz(resultado: dict, conceito: str) -> None:
+    """Se o conceito citar uma MATRIZ, força-a (não deixa o LLM divergir)."""
+    mat = matriz_no_conceito(conceito)
+    if mat:
+        resultado["matriz"] = mat
+
+
+def _esqueleto_conjuracao(nome: str, matriz: str) -> dict:
+    """Conjuração com apenas o NOME (e a matriz herdada); o resto em branco,
+    para o usuário preencher depois na aba Biblioteca da GUI."""
+    return {
+        "nome": nome,
+        "descricao": "",
+        "matriz": matriz or "",
+        "submatriz": "NENHUMA",
+        "nivel": 0,
+        "alcance": "",
+        "area": "",
+        "tem_dano": False,
+        "dado_dano": {"x": 1, "y": 6},
+        "conexao_custo": 0,
+        "conexao_ganho": 0,
+        "efeitos": [],
+    }
 
 
 # ─── Geradores ────────────────────────────────────────────────────────────────
@@ -114,39 +186,111 @@ def gerar_reliquia(
         "DEFERIMENTO, INCÊNDIO, ONDA) — esses são tipos de núcleo, matriz ou submatriz, "
         "não conjurações.\n"
     )
-    return chamar_ollama(system, user, SCHEMAS["reliquia"], modelo, url)
+    resultado = chamar_ollama(system, user, SCHEMAS["reliquia"], modelo, url)
+
+    # Matriz citada no conceito tem prioridade sobre a escolha do LLM.
+    _forcar_matriz(resultado, conceito)
+
+    # As conjurações da relíquia são habilidades reais (modo híbrido):
+    # reusa as da mesma matriz e gera o restante coerente quando faltam.
+    qtd = max(1, min(3, len(resultado.get("conjuracoes") or [])))
+    conjs = _resolver_habilidades(qtd, resultado.get("matriz", ""), conceito, modelo, url)
+    # Guarda as conjurações COMPLETAS (com dano, custo, efeitos) na relíquia.
+    resultado["conjuracoes"] = conjs
+
+    return resultado
 
 
 def gerar_conjuracao(
     conceito: str,
     modelo: str | None = None,
     url: str | None = None,
+    matriz: str | None = None,
 ) -> dict:
-    """Gera uma conjuração seguindo os 9 passos das regras."""
+    """Gera uma conjuração seguindo os 9 passos das regras.
+
+    Se `matriz` for informada, força-a (usado pelo modo híbrido de habilidades).
+    """
     system = _system_prompt("conjuração")
     user = (
         f"Crie uma CONJURAÇÃO com o seguinte conceito: '{conceito}'\n\n"
         "Siga os 9 passos de criação de conjurações descritos nas regras.\n"
         "Se a conjuração não causar dano (utilitária), defina tem_dano=false "
         "e dado_dano com valores quaisquer (serão ignorados).\n"
+        "O campo 'nome' deve ser um NOME PRÓPRIO curto e evocativo da técnica "
+        "(ex.: 'Garras de Granito', 'Vigília da Raposa', 'Manto Espiral') — "
+        "NUNCA comece com a palavra 'Conjuração' e NUNCA use termos de sistema "
+        "(matriz, núcleo, submatriz) no nome.\n"
+        "O campo 'efeitos' aceita APENAS condições e manobras das regras "
+        "(ex.: IMOBILIZADO, CAÍDO, EMPURRAR, DERRUBAR). Se a técnica não impõe "
+        "nenhuma condição/manobra, deixe 'efeitos' como lista vazia [].\n"
+        "O campo 'descricao' deve narrar COMO a conjuração se manifesta no mundo "
+        "(cores, formas, som, movimento), em 1 a 2 frases vívidas. NUNCA repita o "
+        "conceito recebido nem o nome da conjuração; descreva a cena, não a instrução.\n"
     )
-    return chamar_ollama(system, user, SCHEMAS["conjuracao"], modelo, url)
+    resultado = chamar_ollama(system, user, SCHEMAS["conjuracao"], modelo, url)
+
+    # Matriz: parâmetro explícito tem prioridade; senão, a citada no conceito.
+    if matriz:
+        resultado["matriz"] = matriz
+    else:
+        _forcar_matriz(resultado, conceito)
+
+    # Toda conjuração gerada entra na lista de habilidades disponíveis.
+    biblioteca.adicionar(resultado)
+
+    return resultado
 
 
 def gerar_familiar(
     conceito: str,
     modelo: str | None = None,
     url: str | None = None,
+    raridade: str | None = None,
 ) -> dict:
-    """Gera um familiar selvagem (também serve como base para monstros)."""
+    """Gera um familiar selvagem (também serve como base para monstros).
+
+    A RARIDADE é definida pelo sistema (nunca pelo LLM), nesta ordem de
+    prioridade: valor informado pelo usuário → raridade citada no conceito
+    (ex.: 'bicho raro') → sorteio ponderado.
+    """
     system = _system_prompt("familiar")
     user = (
         f"Crie um FAMILIAR com o seguinte conceito: '{conceito}'\n\n"
         "Um FAMILIAR é uma criatura rara cuja existência foi transformada pela influência de uma "
-        "MATRIZ. Descreva sua aparência, comportamento instintivo e habilidades especiais. "
-        "Seja criativo e coerente com a matriz escolhida.\n"
+        "MATRIZ. Se o conceito indicar uma matriz específica, USE EXATAMENTE essa matriz.\n"
+        "Escreva com riqueza de detalhes (NÃO responda com uma palavra ou um título):\n"
+        "• 'descricao' = APARÊNCIA física vívida, com pelo menos 2 ou 3 frases.\n"
+        "• 'comportamento' = instintos, hábitos e como age em combate, pelo menos 2 ou 3 frases.\n"
+        "• 'habilidades' = de 1 a 3 NOMES PRÓPRIOS curtos de técnicas/golpes "
+        "(ex.: 'Vigília da Raposa', 'Salto Sombrio') — APENAS os nomes; os detalhes "
+        "mecânicos serão definidos depois.\n"
+        "Mantenha o nome e as descrições coerentes com o conceito (ex.: se é uma raposa, "
+        "descreva uma raposa — não a troque por outro animal).\n"
     )
-    return chamar_ollama(system, user, SCHEMAS["familiar"], modelo, url)
+    resultado = chamar_ollama(system, user, SCHEMAS["familiar"], modelo, url)
+
+    # Matriz citada no conceito tem prioridade sobre a escolha do LLM.
+    _forcar_matriz(resultado, conceito)
+
+    # Raridade: usuário > citada no conceito ('bicho raro' → RARO) > sorteio.
+    resultado["raridade"] = raridade or raridade_no_conceito(conceito) or raridade_aleatoria()
+
+    # Habilidades: apenas os NOMES (vindos do LLM). Cada uma vira um ESQUELETO
+    # de conjuração na biblioteca (matriz herdada, resto em branco) para o
+    # usuário preencher na GUI. Não gera mecânica automaticamente.
+    matriz = resultado.get("matriz", "")
+    nomes: list[str] = []
+    for h in (resultado.get("habilidades") or []):
+        nome = str(h).strip()
+        if nome and nome not in nomes:
+            nomes.append(nome)
+    nomes = nomes[:3]
+    for nome in nomes:
+        biblioteca.adicionar(_esqueleto_conjuracao(nome, matriz))
+    resultado["habilidades"] = nomes
+
+    return resultado
 
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
@@ -185,6 +329,10 @@ Exemplos:
         help="Nível do conjurador — apenas para o subcomando 'conjurador' (padrão: 1)",
     )
     parser.add_argument(
+        "--raridade", default=None, choices=RARIDADES, metavar="RARIDADE",
+        help="Raridade do familiar — apenas para 'familiar'. Se omitido, é sorteada.",
+    )
+    parser.add_argument(
         "--modelo", default=None, metavar="NOME",
         help=f"Modelo Ollama (padrão: {MODELO_PADRAO} ou $RPG_MODEL)",
     )
@@ -201,6 +349,8 @@ Exemplos:
     try:
         if args.tipo == "conjurador":
             resultado = gerar_conjurador(args.conceito, args.nivel, args.modelo, args.url)
+        elif args.tipo == "familiar":
+            resultado = gerar_familiar(args.conceito, args.modelo, args.url, args.raridade)
         else:
             resultado = _GERADORES[args.tipo](args.conceito, args.modelo, args.url)
 

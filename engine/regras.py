@@ -1,8 +1,88 @@
 # Regras determinísticas do Sistema das Relíquias.
 # Nenhuma lógica aqui depende do LLM.
 import random
+import re
+import unicodedata
+
+# MATRIZES canônicas (fonte da verdade — o schema importa daqui).
+MATRIZES = [
+    "INCÊNDIO", "INUNDAÇÃO", "TEMPESTADE", "CICLONE", "TERREMOTO",
+    "NEUTRO", "MARCIAL", "FAUNA", "FLORA", "GUARDIÃO", "FÁBULA",
+    "SÓLIDO", "MALEÁVEL", "ESCURO", "ESPIRITUAL", "MENTAL",
+]
+
+
+# Efeitos válidos de uma CONJURAÇÃO = CONDIÇÕES (fonte: Condições.txt) +
+# MANOBRAS (fonte: Manobras.txt). O schema restringe 'efeitos' a esta lista,
+# o que impede o LLM de "vazar" texto livre (nome/conceito) no campo.
+CONDICOES = [
+    "CAÍDO", "AGARRADO", "IMOBILIZADO", "ABALADO", "PROVOCADO", "ATORDOADO",
+    "DESMORALIZADO", "EXPOSTO", "SANGRANDO", "ENVENENADO", "INCENDIADO",
+    "CONGELADO", "ELETROCUTADO", "CEGO", "SURDO", "SILENCIADO", "INCONSCIENTE",
+    "MORRENDO", "INVISÍVEL", "OCULTO", "AMEDRONTADO", "FORTIFICADO",
+    "ACELERADO", "ENFRAQUECIDO", "EXAUSTO",
+]
+MANOBRAS = ["DERRUBAR", "EMPURRAR", "AGARRAR", "MOVER", "ARREMESSAR", "IMOBILIZAR", "PROVOCAR"]
+EFEITOS = CONDICOES + MANOBRAS
+
+
+def _sem_acentos(texto: str) -> str:
+    """Minúsculo e sem acentos, para comparação tolerante (guardião≈guardiao)."""
+    nfd = unicodedata.normalize("NFD", texto or "")
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
+
+
+def matriz_no_conceito(conceito: str) -> str | None:
+    """Detecta uma MATRIZ citada no conceito (ex.: 'matriz guardião' → 'GUARDIÃO').
+
+    Comparação tolerante a acentos. Retorna a matriz ou None se nenhuma aparecer.
+    """
+    alvo = _sem_acentos(conceito)
+    for matriz in MATRIZES:
+        if _sem_acentos(matriz) in alvo:
+            return matriz
+    return None
 
 ATRIBUTOS = ["brutalidade", "rapidez", "vitalidade", "influencia", "sintonia", "astucia"]
+
+# Raridades possíveis de um FAMILIAR (fonte da verdade — o schema importa daqui).
+RARIDADES = ["COMUM", "INCOMUM", "RARO", "LENDÁRIO"]
+
+# Pesos do sorteio de RARIDADE (mesma ordem de RARIDADES): raridades altas são
+# mais raras. COMUM 50% · INCOMUM 30% · RARO 15% · LENDÁRIO 5%.
+RARIDADE_PESOS = [50, 30, 15, 5]
+
+
+def raridade_aleatoria(_rng: random.Random | None = None) -> str:
+    """Sorteia uma RARIDADE (ponderada) quando o usuário não a informa.
+
+    Raridades mais altas são proporcionalmente mais raras (ver RARIDADE_PESOS).
+    `_rng` permite testes determinísticos.
+    """
+    rng: random.Random = _rng or random.SystemRandom()  # type: ignore[assignment]
+    return rng.choices(RARIDADES, weights=RARIDADE_PESOS, k=1)[0]
+
+
+# Padrões para detectar uma RARIDADE mencionada no texto do conceito.
+# Ordem importa: termos mais específicos primeiro (INCOMUM antes de COMUM).
+_RARIDADE_PADROES = [
+    (re.compile(r"lend[áa]ri", re.IGNORECASE), "LENDÁRIO"),
+    (re.compile(r"incomum|incomuns", re.IGNORECASE), "INCOMUM"),
+    (re.compile(r"\brar[oíi]ssim|\brar[oa]s?\b", re.IGNORECASE), "RARO"),
+    (re.compile(r"\bcomum\b|\bcomuns\b", re.IGNORECASE), "COMUM"),
+]
+
+
+def raridade_no_conceito(conceito: str) -> str | None:
+    """Detecta uma RARIDADE citada no conceito (ex.: 'bicho raro' → 'RARO').
+
+    Retorna a raridade encontrada ou None se o conceito não mencionar nenhuma.
+    """
+    texto = conceito or ""
+    for padrao, raridade in _RARIDADE_PADROES:
+        if padrao.search(texto):
+            return raridade
+    return None
 
 # Lista canônica de PERÍCIAS (fonte: Perícias.txt + as citadas em Escolas.txt).
 # É a fonte da verdade — o schema do conjurador importa daqui.
