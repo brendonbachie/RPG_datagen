@@ -113,25 +113,6 @@ def _forcar_matriz(resultado: dict, conceito: str) -> None:
         resultado["matriz"] = mat
 
 
-def _esqueleto_conjuracao(nome: str, matriz: str, custo: int = 0) -> dict:
-    """Conjuração com apenas o NOME (e matriz/custo herdados); o resto em branco,
-    para o usuário preencher depois na aba Biblioteca da GUI."""
-    return {
-        "nome": nome,
-        "descricao": "",
-        "matriz": matriz or "",
-        "submatriz": "NENHUMA",
-        "custo": custo,
-        "ganho_conexao": 0,
-        "gasto_acao": "AÇÃO COMPLEXA",
-        "alcance": "",
-        "area": "",
-        "tem_dano": False,
-        "dado_dano": {"x": 1, "y": 6},
-        "efeitos": [],
-    }
-
-
 # ─── Preferências do usuário ────────────────────────────────────────────────
 # Campos opcionais vindos da GUI: preenchidos guiam o LLM e (quando forçáveis)
 # são gravados exatamente no resultado; ausentes deixam o LLM decidir.
@@ -319,12 +300,14 @@ def gerar_conjuracao(
     url: str | None = None,
     matriz: str | None = None,
     custo: int | None = None,
+    nome_forcado: str | None = None,
     prefs: dict | None = None,
 ) -> dict:
     """Gera uma conjuração conforme as regras.
 
     Se `matriz` for informada, força-a; se `custo` for informado, força o custo
-    de conexão (usado pelo modo híbrido de habilidades).
+    de conexão; se `nome_forcado` for informado, mantém esse nome próprio (usado
+    para materializar habilidades nomeadas de familiares).
     """
     system = _system_prompt("conjuração")
     instr_custo = (
@@ -358,6 +341,10 @@ def gerar_conjuracao(
     # Custo forçado (modo híbrido) tem prioridade sobre a escolha do LLM.
     if custo is not None:
         resultado["custo"] = int(custo)
+
+    # Nome próprio preservado (ex.: habilidade nomeada de um familiar).
+    if nome_forcado:
+        resultado["nome"] = nome_forcado
 
     # Preferências do usuário vencem (matriz, custo, dano, efeitos…).
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["conjuracao"])
@@ -405,6 +392,7 @@ def gerar_familiar(
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["familiar"])
 
     matriz = resultado.get("matriz", "")
+    especie = resultado.get("especie_base", "") or "uma criatura"
 
     def _nomes(campo: str) -> list[str]:
         out: list[str] = []
@@ -417,13 +405,20 @@ def gerar_familiar(
     fisicas = _nomes("habilidades_fisicas")
     de_matriz = _nomes("habilidades_matriz")
 
-    # Cada nome vira um ESQUELETO de conjuração na biblioteca (físicas = NEUTRO;
-    # de matriz = matriz do familiar). Detalhes mecânicos preenchidos depois.
+    # Cada nome vira uma CONJURAÇÃO COMPLETA na biblioteca (com dano, custo e
+    # efeitos coerentes), preservando o nome inventado pelo LLM. Físicas usam a
+    # matriz NEUTRA; habilidades de matriz usam a matriz do familiar.
     with biblioteca.lote():
         for nome in fisicas:
-            biblioteca.adicionar(_esqueleto_conjuracao(nome, "NEUTRO"))
+            gerar_conjuracao(
+                f"{nome}: habilidade física natural de {especie}",
+                modelo, url, matriz="NEUTRO", nome_forcado=nome,
+            )
         for nome in de_matriz:
-            biblioteca.adicionar(_esqueleto_conjuracao(nome, matriz))
+            gerar_conjuracao(
+                f"{nome}: manifestação sobrenatural da matriz {matriz}",
+                modelo, url, matriz=matriz or None, nome_forcado=nome,
+            )
 
     resultado["habilidades_fisicas"] = fisicas
     resultado["habilidades_matriz"] = de_matriz
