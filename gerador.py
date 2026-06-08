@@ -3,7 +3,7 @@
 Gerador de conteúdo para o Sistema das Relíquias (RPG de mesa).
 
 Uso:
-    python gerador.py conjurador "um espadachim de matriz incêndio"
+    python gerador.py conjurador "um espadachim de matriz incêndio" --grau 3
     python gerador.py reliquia   "machado de gelo de um urso glacial"
     python gerador.py conjuracao "raio espiral da tempestade"
     python gerador.py familiar   "serpente feita de sombras"
@@ -20,13 +20,12 @@ from engine.regras import (
     ajustar_pericias,
     calcular_conexao,
     calcular_vida,
+    clampar_grau,
     corrigir_atributos,
     matriz_no_conceito,
-    raridade_aleatoria,
-    raridade_no_conceito,
+    total_ecos,
     validar_atributos,
 )
-from engine.regras import RARIDADES
 from engine.schemas import SCHEMAS
 
 # Cache das regras — carregado uma vez por execução
@@ -52,40 +51,52 @@ def _system_prompt(tipo: str) -> str:
     )
 
 
+def _custo_conjuracao(c: dict) -> int:
+    """Custo de conexão de uma conjuração (aceita o nome novo e o legado)."""
+    valor = c.get("custo", c.get("conexao_custo", 0))
+    try:
+        return int(valor or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _resolver_habilidades(
     quantidade: int,
     matriz: str,
     conceito: str,
     modelo: str | None,
     url: str | None,
+    custo: int | None = None,
 ) -> list[dict]:
     """
-    Resolve as habilidades de uma criação a partir da biblioteca de conjurações.
-
-    Modo HÍBRIDO: reaproveita apenas conjurações da MESMA matriz e, para o que
-    faltar, gera novas conjurações temáticas (coerentes com a matriz) — cada
-    uma também é adicionada à biblioteca por `gerar_conjuracao`.
-    Retorna a lista de conjurações (dicts) escolhidas.
+    Resolve habilidades (conjurações) a partir da biblioteca, modo HÍBRIDO:
+    reaproveita conjurações da MESMA matriz (e, se `custo` for dado, do mesmo
+    custo) e gera novas conjurações temáticas para o que faltar — cada uma
+    também é adicionada à biblioteca por `gerar_conjuracao`.
     """
     quantidade = max(0, quantidade)
-    selecionadas = biblioteca.selecionar(quantidade, matriz, estrito=True)
+    if quantidade == 0:
+        return []
+
+    # Todas as conjurações da mesma matriz; filtra por custo quando exigido.
+    candidatas = biblioteca.selecionar(10_000, matriz, estrito=True)
+    if custo is not None:
+        candidatas = [c for c in candidatas if _custo_conjuracao(c) == custo]
+    selecionadas = candidatas[:quantidade]
     usados = {biblioteca.normalizar(c.get("nome", "")) for c in selecionadas}
 
-    # Lote: as conjurações geradas abaixo são acumuladas e gravadas de uma só
-    # vez (evita reescrever o arquivo inteiro a cada uma — O(n²) → O(n)).
+    # Lote: as conjurações geradas abaixo são acumuladas e gravadas de uma só vez.
     with biblioteca.lote():
         tentativas = 0
         while len(selecionadas) < quantidade and tentativas < quantidade + 3:
             tentativas += 1
-            # Tema enxuto: remove a instrução ('Crie um familiar, baseado em…') e
-            # qualifativos ('deve ser raro'), deixando só a essência criativa.
             tema = re.sub(
                 r"^\s*(crie|gere|fa[çc]a)\s+(um|uma)\s+\w+\s*,?\s*(basead[oa]\s+em\s+|com\s+base\s+em\s+|sobre\s+)?",
                 "", conceito, flags=re.IGNORECASE,
             )
             tema = re.sub(r",?\s*(deve ser|sendo|que (é|seja))\b.*$", "", tema, flags=re.IGNORECASE).strip()
             conceito_conj = f"conjuração temática inspirada em {tema or conceito}"
-            nova = gerar_conjuracao(conceito_conj, modelo, url, matriz=matriz or None)
+            nova = gerar_conjuracao(conceito_conj, modelo, url, matriz=matriz or None, custo=custo)
             chave = biblioteca.normalizar(nova.get("nome", ""))
             if not chave or chave in usados:
                 continue
@@ -102,21 +113,21 @@ def _forcar_matriz(resultado: dict, conceito: str) -> None:
         resultado["matriz"] = mat
 
 
-def _esqueleto_conjuracao(nome: str, matriz: str) -> dict:
-    """Conjuração com apenas o NOME (e a matriz herdada); o resto em branco,
+def _esqueleto_conjuracao(nome: str, matriz: str, custo: int = 0) -> dict:
+    """Conjuração com apenas o NOME (e matriz/custo herdados); o resto em branco,
     para o usuário preencher depois na aba Biblioteca da GUI."""
     return {
         "nome": nome,
         "descricao": "",
         "matriz": matriz or "",
         "submatriz": "NENHUMA",
-        "nivel": 0,
+        "custo": custo,
+        "ganho_conexao": 0,
+        "gasto_acao": "AÇÃO COMPLEXA",
         "alcance": "",
         "area": "",
         "tem_dano": False,
         "dado_dano": {"x": 1, "y": 6},
-        "conexao_custo": 0,
-        "conexao_ganho": 0,
         "efeitos": [],
     }
 
@@ -127,25 +138,28 @@ def _esqueleto_conjuracao(nome: str, matriz: str) -> dict:
 
 # Rótulos amigáveis para o bloco de instrução enviado ao LLM.
 _PREF_ROTULOS = {
-    "matriz": "matriz", "submatriz": "submatriz", "nivel": "nível",
+    "matriz": "matriz", "submatriz": "submatriz",
     "alcance": "alcance", "area": "área", "efeitos": "efeitos",
-    "conexao_custo": "custo de conexão", "conexao_ganho": "ganho de conexão",
-    "tem_dano": "causa dano", "escola": "escola", "idade": "idade",
+    "custo": "custo de conexão", "ganho_conexao": "ganho de conexão",
+    "gasto_acao": "gasto de ação", "tem_dano": "causa dano",
+    "escola": "escola", "idade": "idade", "grau_ressonancia": "grau de ressonância",
     "atributos": "atributos", "pericias": "perícias", "nucleo": "núcleo",
-    "vetor": "vetor", "forma": "forma", "tipos_dano": "tipos de dano",
-    "mult_critico": "multiplicador de crítico", "raridade": "raridade",
+    "nivel": "nível da relíquia", "porte": "porte", "cobertura": "cobertura",
+    "coloracao": "coloração", "temperamento": "temperamento", "habito": "hábito",
+    "socializacao": "socialização", "bioma": "bioma", "regiao": "região",
+    "especie_base": "espécie base",
 }
 
 # Campos que, quando informados, são gravados exatamente no resultado (por tipo).
 # Os demais (ex.: atributos/perícias do conjurador) entram só como guia no prompt,
 # pois são pós-processados pelo motor de regras.
 _PREF_FORCAR = {
-    "conjuracao": {"matriz", "submatriz", "nivel", "alcance", "area", "tem_dano",
-                   "dado_dano", "conexao_custo", "conexao_ganho", "efeitos"},
+    "conjuracao": {"matriz", "submatriz", "alcance", "area", "tem_dano",
+                   "dado_dano", "custo", "ganho_conexao", "gasto_acao", "efeitos"},
     "conjurador": {"escola", "idade"},
-    "reliquia": {"matriz", "submatriz", "nucleo", "vetor", "nivel", "alcance",
-                 "area", "forma", "tipos_dano", "dado_dano", "mult_critico"},
-    "familiar": {"matriz", "submatriz", "raridade"},
+    "reliquia": {"matriz", "submatriz", "nucleo", "nivel", "alcance", "dado_dano"},
+    "familiar": {"matriz", "submatriz", "porte", "cobertura", "temperamento",
+                 "habito", "socializacao", "especie_base"},
 }
 
 
@@ -202,49 +216,62 @@ def _forcar_preferencias(resultado: dict, prefs: dict | None, permitidos: set[st
 
 def gerar_conjurador(
     conceito: str,
-    nivel: int = 1,
+    grau: int = 1,
     modelo: str | None = None,
     url: str | None = None,
     prefs: dict | None = None,
 ) -> dict:
     """Gera um conjurador e calcula VIDA e CONEXÃO deterministicamente."""
+    grau = clampar_grau(grau)
     system = _system_prompt("conjurador")
     user = (
         f"Crie um CONJURADOR com o seguinte conceito: '{conceito}'\n"
-        f"Nível: {nivel}\n\n"
-        "Regras obrigatórias para os atributos:\n"
+        f"Grau de ressonância: {grau}\n\n"
+        "Regras obrigatórias para os atributos (criação + progressão):\n"
         "• Os 6 atributos (brutalidade, rapidez, vitalidade, influencia, sintonia, astucia) "
-        "começam em 1 e você distribui +4 pontos extras (total sempre = 10), máximo 3 por atributo.\n"
-        "• Opcionalmente pode zerar UM atributo (reduzindo de 1 para 0) para ganhar +1 ponto extra "
-        "(total 5 a distribuir, soma final ainda = 10).\n"
-        "• NÃO inclua os campos 'vida' nem 'conexao' — eles são calculados pelo sistema.\n"
-        "• Escolha a escola coerente com o conceito. As perícias devem fazer sentido com a escola "
-        "(cada escola tem um conjunto próprio) e com o conceito — a quantidade exata é ajustada "
-        "pelo sistema.\n"
+        "começam em 1 e você distribui pontos extras; o total exato é ajustado pelo sistema "
+        "conforme o grau. Cada atributo fica entre 0 e 6.\n"
+        "• Opcionalmente pode zerar UM atributo. No máximo um atributo pode ser 0.\n"
+        "• NÃO inclua VIDA nem CONEXÃO — são calculados pelo sistema.\n"
+        "• Escolha a escola coerente com o conceito. As perícias devem fazer sentido com a "
+        "escola e com o conceito — a quantidade exata é ajustada pelo sistema.\n"
+        "• 'ecos' = nomes próprios curtos das habilidades passivas adquiridas (a quantidade é "
+        "ajustada pelo sistema).\n"
+        "• 'reliquias' = ao menos um nome próprio de relíquia vinculada ao conjurador.\n"
     ) + _bloco_preferencias(prefs)
 
     resultado = chamar_ollama(system, user, SCHEMAS["conjurador"], modelo, url)
 
-    # Nível é entrada do usuário — força o valor pedido (não depende do LLM)
-    resultado["nivel"] = nivel
+    # Grau é entrada do usuário — força o valor pedido (não depende do LLM)
+    resultado["grau_ressonancia"] = grau
 
-    # Validação e correção determinística dos atributos
+    # Validação e correção determinística dos atributos (soma alvo pelo grau)
     attrs = resultado.get("atributos", {})
-    valido, motivo = validar_atributos(attrs)
+    valido, motivo = validar_atributos(attrs, grau)
     if not valido:
-        resultado["atributos"] = corrigir_atributos(attrs)
+        resultado["atributos"] = corrigir_atributos(attrs, grau)
         resultado["_aviso"] = f"Atributos corrigidos automaticamente: {motivo}"
 
-    # Ajuste determinístico da quantidade de perícias: ESCOLA + ASTÚCIA + 2
-    astucia = resultado["atributos"].get("astucia", 1)
+    # Ajuste determinístico da quantidade de perícias (progressão de grau)
     escola = resultado.get("escola", "")
-    resultado["pericias"] = ajustar_pericias(escola, astucia, resultado.get("pericias", []))
+    resultado["pericias"] = ajustar_pericias(escola, grau, resultado.get("pericias", []))
+
+    # Ecos: quantidade segue a progressão (graus 1/5/10/15/20/25/30, máx 7)
+    ecos = [str(e).strip() for e in (resultado.get("ecos") or []) if str(e).strip()]
+    resultado["ecos"] = ecos[: total_ecos(grau)]
+
+    # Condições começam vazias (Schema_Conjurador.md)
+    resultado["condicoes"] = []
 
     # Cálculo determinístico (rola dados em código, não pelo LLM)
     vit = resultado["atributos"].get("vitalidade", 1)
     sint = resultado["atributos"].get("sintonia", 1)
-    resultado["vida"] = calcular_vida(nivel, vit)
-    resultado["conexao"] = calcular_conexao(nivel, sint)
+    vida_max = calcular_vida(grau, vit)
+    con_max = calcular_conexao(grau, sint)
+    resultado["vida_maxima"] = vida_max
+    resultado["vida_atual"] = vida_max
+    resultado["conexao_maxima"] = con_max
+    resultado["conexao_atual"] = con_max
 
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["conjurador"])
     biblioteca.CONJURADORES.adicionar(resultado)
@@ -257,18 +284,17 @@ def gerar_reliquia(
     url: str | None = None,
     prefs: dict | None = None,
 ) -> dict:
-    """Gera uma relíquia com seu familiar de origem."""
+    """Gera uma relíquia com suas 6 conjurações iniciais (3 de custo 0, 3 de custo 1)."""
     system = _system_prompt("relíquia")
     user = (
         f"Crie uma RELÍQUIA com o seguinte conceito: '{conceito}'\n\n"
-        "Inclua o FAMILIAR de origem (a criatura que deu origem ao núcleo da relíquia). "
         "Escolha todos os parâmetros mecânicos de acordo com as regras do sistema.\n\n"
-        "Sobre o campo 'conjuracoes': liste de 1 a 3 NOMES PRÓPRIOS de conjurações "
-        "(técnicas/golpes) inventados, coerentes com a matriz e o conceito — por exemplo "
-        "'Garras de Granito' ou 'Investida do Tigre'.\n"
+        "Sobre o campo 'conjuracoes': liste NOMES PRÓPRIOS de conjurações (técnicas/golpes) "
+        "inventados, coerentes com a matriz e o conceito — por exemplo 'Garras de Granito' ou "
+        "'Investida do Tigre'. O sistema completará as 6 conjurações iniciais (3 de custo 0 e "
+        "3 de custo 1).\n"
         "NUNCA use termos de sistema como nomes de conjuração (ex.: IMPACTO, CANALIZAÇÃO, "
-        "DEFERIMENTO, INCÊNDIO, ONDA) — esses são tipos de núcleo, matriz ou submatriz, "
-        "não conjurações.\n"
+        "DEFERIMENTO, INCÊNDIO, ONDA) — esses são tipos de núcleo, matriz ou submatriz.\n"
     ) + _bloco_preferencias(prefs)
     resultado = chamar_ollama(system, user, SCHEMAS["reliquia"], modelo, url)
 
@@ -277,12 +303,11 @@ def gerar_reliquia(
     # Preferência explícita do usuário vence a matriz do conceito.
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["reliquia"])
 
-    # As conjurações da relíquia são habilidades reais (modo híbrido):
-    # reusa as da mesma matriz e gera o restante coerente quando faltam.
-    qtd = max(1, min(3, len(resultado.get("conjuracoes") or [])))
-    conjs = _resolver_habilidades(qtd, resultado.get("matriz", ""), conceito, modelo, url)
-    # Guarda as conjurações COMPLETAS (com dano, custo, efeitos) na relíquia.
-    resultado["conjuracoes"] = conjs
+    # 6 conjurações iniciais (modo híbrido): 3 de custo 0 + 3 de custo 1.
+    matriz = resultado.get("matriz", "")
+    c0 = _resolver_habilidades(3, matriz, conceito, modelo, url, custo=0)
+    c1 = _resolver_habilidades(3, matriz, conceito, modelo, url, custo=1)
+    resultado["conjuracoes"] = c0 + c1
 
     biblioteca.RELIQUIAS.adicionar(resultado)
     return resultado
@@ -293,25 +318,31 @@ def gerar_conjuracao(
     modelo: str | None = None,
     url: str | None = None,
     matriz: str | None = None,
+    custo: int | None = None,
     prefs: dict | None = None,
 ) -> dict:
-    """Gera uma conjuração seguindo os 9 passos das regras.
+    """Gera uma conjuração conforme as regras.
 
-    Se `matriz` for informada, força-a (usado pelo modo híbrido de habilidades).
+    Se `matriz` for informada, força-a; se `custo` for informado, força o custo
+    de conexão (usado pelo modo híbrido de habilidades).
     """
     system = _system_prompt("conjuração")
+    instr_custo = (
+        f"O custo de conexão DEVE ser exatamente {custo}.\n" if custo is not None else ""
+    )
     user = (
         f"Crie uma CONJURAÇÃO com o seguinte conceito: '{conceito}'\n\n"
-        "Siga os 9 passos de criação de conjurações descritos nas regras.\n"
+        + instr_custo +
         "Se a conjuração não causar dano (utilitária), defina tem_dano=false "
         "e dado_dano com valores quaisquer (serão ignorados).\n"
         "O campo 'nome' deve ser um NOME PRÓPRIO curto e evocativo da técnica "
         "(ex.: 'Garras de Granito', 'Vigília da Raposa', 'Manto Espiral') — "
         "NUNCA comece com a palavra 'Conjuração' e NUNCA use termos de sistema "
         "(matriz, núcleo, submatriz) no nome.\n"
-        "O campo 'efeitos' aceita APENAS condições e manobras das regras "
-        "(ex.: IMOBILIZADO, CAÍDO, EMPURRAR, DERRUBAR). Se a técnica não impõe "
-        "nenhuma condição/manobra, deixe 'efeitos' como lista vazia [].\n"
+        "O campo 'gasto_acao' deve ser um de: AÇÃO DE LOCOMOÇÃO, AÇÃO COMPLEXA, AÇÃO EXTRA.\n"
+        "O campo 'efeitos' aceita condições, manobras das regras (ex.: IMOBILIZADO, CAÍDO, "
+        "EMPURRAR) ou efeitos personalizados curtos. Se a técnica não tem efeito mecânico, "
+        "deixe 'efeitos' como lista vazia [].\n"
         "O campo 'descricao' deve narrar COMO a conjuração se manifesta no mundo "
         "(cores, formas, som, movimento), em 1 a 2 frases vívidas. NUNCA repita o "
         "conceito recebido nem o nome da conjuração; descreva a cena, não a instrução.\n"
@@ -324,7 +355,11 @@ def gerar_conjuracao(
     else:
         _forcar_matriz(resultado, conceito)
 
-    # Preferências do usuário vencem (matriz, nível, dano, efeitos…).
+    # Custo forçado (modo híbrido) tem prioridade sobre a escolha do LLM.
+    if custo is not None:
+        resultado["custo"] = int(custo)
+
+    # Preferências do usuário vencem (matriz, custo, dano, efeitos…).
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["conjuracao"])
 
     # Toda conjuração gerada entra na lista de habilidades disponíveis.
@@ -337,55 +372,61 @@ def gerar_familiar(
     conceito: str,
     modelo: str | None = None,
     url: str | None = None,
-    raridade: str | None = None,
     prefs: dict | None = None,
 ) -> dict:
     """Gera um familiar selvagem (também serve como base para monstros).
 
-    A RARIDADE é definida pelo sistema (nunca pelo LLM), nesta ordem de
-    prioridade: valor informado pelo usuário → raridade citada no conceito
-    (ex.: 'bicho raro') → sorteio ponderado.
+    As habilidades têm duas origens (Schema_Familiar.md): habilidades FÍSICAS são
+    conjurações da matriz NEUTRA; habilidades de MATRIZ são conjurações da matriz
+    do familiar. Aqui geramos apenas os NOMES, virando esqueletos na biblioteca.
     """
     system = _system_prompt("familiar")
     user = (
         f"Crie um FAMILIAR com o seguinte conceito: '{conceito}'\n\n"
-        "Um FAMILIAR é uma criatura rara cuja existência foi transformada pela influência de uma "
+        "Um FAMILIAR é uma criatura cuja existência foi transformada pela influência de uma "
         "MATRIZ. Se o conceito indicar uma matriz específica, USE EXATAMENTE essa matriz.\n"
-        "Escreva com riqueza de detalhes (NÃO responda com uma palavra ou um título):\n"
-        "• 'descricao' = APARÊNCIA física vívida, com pelo menos 2 ou 3 frases.\n"
-        "• 'comportamento' = instintos, hábitos e como age em combate, pelo menos 2 ou 3 frases.\n"
-        "• 'habilidades' = de 1 a 3 NOMES PRÓPRIOS curtos de técnicas/golpes "
-        "(ex.: 'Vigília da Raposa', 'Salto Sombrio') — APENAS os nomes; os detalhes "
-        "mecânicos serão definidos depois.\n"
+        "Preencha todos os campos com coerência (porte, cobertura, temperamento, hábito, "
+        "socialização, bioma, região, coloração e características visíveis da matriz).\n"
+        "• 'descricao' = APARÊNCIA e comportamento vívidos: como a matriz alterou a criatura, "
+        "como ela age e como se apresenta visualmente (pelo menos 3 ou 4 frases).\n"
+        "• 'habilidades_fisicas' = 1+ NOMES de capacidades naturais da espécie "
+        "(ex.: 'Mordida', 'Garras', 'Investida').\n"
+        "• 'habilidades_matriz' = 1+ NOMES de manifestações sobrenaturais da matriz "
+        "(ex.: 'Sopro Glacial', 'Véu de Sombras').\n"
         "Mantenha o nome e as descrições coerentes com o conceito (ex.: se é uma raposa, "
-        "descreva uma raposa — não a troque por outro animal).\n"
+        "descreva uma raposa).\n"
     ) + _bloco_preferencias(prefs)
     resultado = chamar_ollama(system, user, SCHEMAS["familiar"], modelo, url)
 
     # Matriz citada no conceito tem prioridade sobre a escolha do LLM.
     _forcar_matriz(resultado, conceito)
 
-    # Raridade: usuário > citada no conceito ('bicho raro' → RARO) > sorteio.
-    resultado["raridade"] = raridade or raridade_no_conceito(conceito) or raridade_aleatoria()
-
-    # Preferências do usuário vencem (matriz/submatriz/raridade) — aplicadas antes
-    # de derivar a matriz herdada pelos esqueletos de conjuração abaixo.
+    # Preferências do usuário vencem (matriz/submatriz/enums descritivos).
     _forcar_preferencias(resultado, prefs, _PREF_FORCAR["familiar"])
 
-    # Habilidades: apenas os NOMES (vindos do LLM). Cada uma vira um ESQUELETO
-    # de conjuração na biblioteca (matriz herdada, resto em branco) para o
-    # usuário preencher na GUI. Não gera mecânica automaticamente.
     matriz = resultado.get("matriz", "")
-    nomes: list[str] = []
-    for h in (resultado.get("habilidades") or []):
-        nome = str(h).strip()
-        if nome and nome not in nomes:
-            nomes.append(nome)
-    nomes = nomes[:3]
+
+    def _nomes(campo: str) -> list[str]:
+        out: list[str] = []
+        for h in (resultado.get(campo) or []):
+            nome = str(h).strip()
+            if nome and nome not in out:
+                out.append(nome)
+        return out[:5]
+
+    fisicas = _nomes("habilidades_fisicas")
+    de_matriz = _nomes("habilidades_matriz")
+
+    # Cada nome vira um ESQUELETO de conjuração na biblioteca (físicas = NEUTRO;
+    # de matriz = matriz do familiar). Detalhes mecânicos preenchidos depois.
     with biblioteca.lote():
-        for nome in nomes:
+        for nome in fisicas:
+            biblioteca.adicionar(_esqueleto_conjuracao(nome, "NEUTRO"))
+        for nome in de_matriz:
             biblioteca.adicionar(_esqueleto_conjuracao(nome, matriz))
-    resultado["habilidades"] = nomes
+
+    resultado["habilidades_fisicas"] = fisicas
+    resultado["habilidades_matriz"] = de_matriz
 
     biblioteca.FAMILIARES.adicionar(resultado)
     return resultado
@@ -409,11 +450,10 @@ def main() -> None:
         epilog="""
 Exemplos:
   python gerador.py conjurador "um espadachim de matriz incêndio"
-  python gerador.py conjurador "ladra sombria" --nivel 3
+  python gerador.py conjurador "ladra sombria" --grau 3
   python gerador.py reliquia   "machado de gelo de um urso glacial"
   python gerador.py conjuracao "raio espiral da tempestade"
   python gerador.py familiar   "serpente feita de sombras"
-  python gerador.py familiar   "lobo de pedra" --modelo llama3:8b
         """,
     )
     parser.add_argument(
@@ -423,12 +463,8 @@ Exemplos:
     )
     parser.add_argument("conceito", help="Descrição ou conceito da entidade")
     parser.add_argument(
-        "--nivel", type=int, default=1, metavar="N",
-        help="Nível do conjurador — apenas para o subcomando 'conjurador' (padrão: 1)",
-    )
-    parser.add_argument(
-        "--raridade", default=None, choices=RARIDADES, metavar="RARIDADE",
-        help="Raridade do familiar — apenas para 'familiar'. Se omitido, é sorteada.",
+        "--grau", "--nivel", type=int, default=1, metavar="N", dest="grau",
+        help="Grau de ressonância do conjurador (1-30) — apenas para 'conjurador' (padrão: 1)",
     )
     parser.add_argument(
         "--modelo", default=None, metavar="NOME",
@@ -446,9 +482,7 @@ Exemplos:
 
     try:
         if args.tipo == "conjurador":
-            resultado = gerar_conjurador(args.conceito, args.nivel, args.modelo, args.url)
-        elif args.tipo == "familiar":
-            resultado = gerar_familiar(args.conceito, args.modelo, args.url, args.raridade)
+            resultado = gerar_conjurador(args.conceito, args.grau, args.modelo, args.url)
         else:
             resultado = _GERADORES[args.tipo](args.conceito, args.modelo, args.url)
 

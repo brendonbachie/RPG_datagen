@@ -1,20 +1,41 @@
 # Regras determinísticas do Sistema das Relíquias.
+# Fonte da verdade: regras/ (espelho de github.com/Tody0224/RPG_scheema).
 # Nenhuma lógica aqui depende do LLM.
 import random
-import re
 import unicodedata
 
-# MATRIZES canônicas (fonte da verdade — o schema importa daqui).
+# GRAU DE RESSONÂNCIA — substitui o antigo "nível". Vai de 1 a 30
+# (Progressao_de_nivel.md). É a entrada que dimensiona VIDA, CONEXÃO,
+# atributos, perícias e ecos.
+GRAU_MIN, GRAU_MAX = 1, 30
+
+# MATRIZES canônicas (Matrizes.md — o schema importa daqui).
 MATRIZES = [
     "INCÊNDIO", "INUNDAÇÃO", "TEMPESTADE", "CICLONE", "TERREMOTO",
     "NEUTRO", "MARCIAL", "FAUNA", "FLORA", "GUARDIÃO", "FÁBULA",
     "SÓLIDO", "MALEÁVEL", "ESCURO", "ESPIRITUAL", "MENTAL",
 ]
 
+# SUBMATRIZES (Matrizes.md). "NENHUMA" é o sentinela de "sem submatriz"
+# (o campo é opcional nos schemas).
+SUBMATRIZES = ["ONDA", "FÚRIA", "ESPORO", "TEMPERATURA", "ESPIRAL", "NENHUMA"]
 
-# Efeitos válidos de uma CONJURAÇÃO = CONDIÇÕES (fonte: Condições.txt) +
-# MANOBRAS (fonte: Manobras.txt). O schema restringe 'efeitos' a esta lista,
-# o que impede o LLM de "vazar" texto livre (nome/conceito) no campo.
+# ESCOLAS (Escolas.md). INABALÁVEL acentuado conforme o repositório.
+ESCOLAS = ["DESTEMIDO", "CANALIZADOR", "INABALÁVEL", "OPORTUNISTA", "CALCULISTA", "FACILITADOR"]
+
+# Gasto de ação de uma CONJURAÇÃO (Acoes.md / Schema_Conjuracao.md).
+GASTOS_ACAO = ["AÇÃO DE LOCOMOÇÃO", "AÇÃO COMPLEXA", "AÇÃO EXTRA"]
+
+# Enums descritivos de FAMILIAR (Schema_Familiar.md).
+PORTES = ["MINÚSCULO", "PEQUENO", "MÉDIO", "GRANDE", "GIGANTE"]
+COBERTURAS = ["PELOS", "PENAS", "ESCAMAS", "CARAPAÇA", "PELE", "OUTRO"]
+TEMPERAMENTOS = ["PASSIVO", "TERRITORIAL", "AGRESSIVO", "CURIOSO", "PREDADOR"]
+HABITOS = ["DIURNO", "NOTURNO", "CREPUSCULAR"]
+SOCIALIZACOES = ["SOLITÁRIO", "CASAL", "BANDO", "COLÔNIA"]
+
+# Efeitos canônicos de uma CONJURAÇÃO = CONDIÇÕES (Condicoes.md) + MANOBRAS
+# (Manobras.md). O schema novo também aceita EFEITOS PERSONALIZADOS (texto
+# livre), então estas listas servem como vocabulário sugerido, não como trava.
 CONDICOES = [
     "CAÍDO", "AGARRADO", "IMOBILIZADO", "ABALADO", "PROVOCADO", "ATORDOADO",
     "DESMORALIZADO", "EXPOSTO", "SANGRANDO", "ENVENENADO", "INCENDIADO",
@@ -24,6 +45,11 @@ CONDICOES = [
 ]
 MANOBRAS = ["DERRUBAR", "EMPURRAR", "AGARRAR", "MOVER", "ARREMESSAR", "IMOBILIZAR", "PROVOCAR"]
 EFEITOS = CONDICOES + MANOBRAS
+
+ATRIBUTOS = ["brutalidade", "rapidez", "vitalidade", "influencia", "sintonia", "astucia"]
+
+# Range absoluto de um atributo (Atributos.md): 0 a 6.
+ATR_MIN, ATR_MAX = 0, 6
 
 
 def _sem_acentos(texto: str) -> str:
@@ -43,121 +69,127 @@ def matriz_no_conceito(conceito: str) -> str | None:
             return matriz
     return None
 
-ATRIBUTOS = ["brutalidade", "rapidez", "vitalidade", "influencia", "sintonia", "astucia"]
 
-# Raridades possíveis de um FAMILIAR (fonte da verdade — o schema importa daqui).
-RARIDADES = ["COMUM", "INCOMUM", "RARO", "LENDÁRIO"]
-
-# Pesos do sorteio de RARIDADE (mesma ordem de RARIDADES): raridades altas são
-# mais raras. COMUM 50% · INCOMUM 30% · RARO 15% · LENDÁRIO 5%.
-RARIDADE_PESOS = [50, 30, 15, 5]
-
-
-def raridade_aleatoria(_rng: random.Random | None = None) -> str:
-    """Sorteia uma RARIDADE (ponderada) quando o usuário não a informa.
-
-    Raridades mais altas são proporcionalmente mais raras (ver RARIDADE_PESOS).
-    `_rng` permite testes determinísticos.
-    """
-    rng: random.Random = _rng or random.SystemRandom()  # type: ignore[assignment]
-    return rng.choices(RARIDADES, weights=RARIDADE_PESOS, k=1)[0]
-
-
-# Padrões para detectar uma RARIDADE mencionada no texto do conceito.
-# Ordem importa: termos mais específicos primeiro (INCOMUM antes de COMUM).
-_RARIDADE_PADROES = [
-    (re.compile(r"lend[áa]ri", re.IGNORECASE), "LENDÁRIO"),
-    (re.compile(r"incomum|incomuns", re.IGNORECASE), "INCOMUM"),
-    (re.compile(r"\brar[oíi]ssim|\brar[oa]s?\b", re.IGNORECASE), "RARO"),
-    (re.compile(r"\bcomum\b|\bcomuns\b", re.IGNORECASE), "COMUM"),
-]
-
-
-def raridade_no_conceito(conceito: str) -> str | None:
-    """Detecta uma RARIDADE citada no conceito (ex.: 'bicho raro' → 'RARO').
-
-    Retorna a raridade encontrada ou None se o conceito não mencionar nenhuma.
-    """
-    texto = conceito or ""
-    for padrao, raridade in _RARIDADE_PADROES:
-        if padrao.search(texto):
-            return raridade
-    return None
-
-# Lista canônica de PERÍCIAS (fonte: Perícias.txt + as citadas em Escolas.txt).
-# É a fonte da verdade — o schema do conjurador importa daqui.
+# Lista canônica de PERÍCIAS (Pericias.md: 19 oficiais). ASTÚCIA e INFLUÊNCIA
+# aparecem como opções nos pools de algumas escolas (Escolas.md), então também
+# são aceitas como perícias treináveis.
 PERICIAS = [
-    # 19 perícias oficiais de Perícias.txt
     "EQUILÍBRIO", "POTÊNCIA", "OFÍCIOS", "DOMESTICAÇÃO", "ERUDIÇÃO",
     "MALANDRAGEM", "PERSUASÃO", "ENGANAÇÃO", "RESILIÊNCIA", "INICIATIVA",
     "AMEAÇA", "COMBATE", "MEDICINA", "CONJURAÇÃO", "SENTIDOS",
     "ESQUIVA", "CRENÇA", "SOBREVIVÊNCIA", "VONTADE",
-    # Citadas como perícias nos pools das escolas (Escolas.txt)
-    "CRIME", "TECNOLOGIA", "DIPLOMACIA", "ASTÚCIA", "INFLUÊNCIA",
+    # Citadas nos pools das escolas (Escolas.md), embora sejam atributos.
+    "ASTÚCIA", "INFLUÊNCIA",
 ]
 
-# Pool de perícias de cada ESCOLA e quantas são escolhidas dele (o "x/6").
-# Fonte: Escolas.txt. A quantidade total de perícias do conjurador é
-#   ESCOLA(escolhas) + ASTÚCIA + 2   (ver Stats.txt e Conjurador_Exemplo.txt).
+# Pool de perícias de cada ESCOLA e quantas o personagem escolhe dele no grau 1
+# (Escolas.md). A quantidade TOTAL de perícias treinadas, porém, segue a
+# progressão de grau (ver total_pericias) — o pool define a preferência de
+# preenchimento, não o total.
 ESCOLAS_PERICIAS: dict[str, tuple[list[str], int]] = {
     "DESTEMIDO":   (["POTÊNCIA", "INICIATIVA", "COMBATE", "RESILIÊNCIA", "EQUILÍBRIO", "AMEAÇA"], 2),
-    "CANALIZADOR": (["CONJURAÇÃO", "SENTIDOS", "CRENÇA", "ASTÚCIA", "VONTADE", "DIPLOMACIA"], 2),
-    "INABALAVEL":  (["POTÊNCIA", "RESILIÊNCIA", "COMBATE", "CRENÇA", "VONTADE", "AMEAÇA"], 2),
-    "OPORTUNISTA": (["CRIME", "EQUILÍBRIO", "INICIATIVA", "SENTIDOS", "ENGANAÇÃO", "ESQUIVA"], 2),
-    "CALCULISTA":  (["TECNOLOGIA", "ASTÚCIA", "OFÍCIOS", "SENTIDOS", "INICIATIVA", "COMBATE"], 3),
-    "FACILITADOR": (["DIPLOMACIA", "CONJURAÇÃO", "ENGANAÇÃO", "CRENÇA", "INFLUÊNCIA", "VONTADE"], 3),
+    "CANALIZADOR": (["CONJURAÇÃO", "SENTIDOS", "CRENÇA", "ASTÚCIA", "VONTADE", "PERSUASÃO"], 2),
+    "INABALÁVEL":  (["POTÊNCIA", "RESILIÊNCIA", "COMBATE", "CRENÇA", "VONTADE", "AMEAÇA"], 2),
+    "OPORTUNISTA": (["MALANDRAGEM", "EQUILÍBRIO", "INICIATIVA", "SENTIDOS", "ENGANAÇÃO", "ESQUIVA"], 2),
+    "CALCULISTA":  (["ASTÚCIA", "OFÍCIOS", "SENTIDOS", "INICIATIVA", "COMBATE", "ERUDIÇÃO"], 3),
+    "FACILITADOR": (["PERSUASÃO", "CONJURAÇÃO", "ENGANAÇÃO", "CRENÇA", "INFLUÊNCIA", "VONTADE"], 3),
 }
+
+# Marcos da progressão de GRAU DE RESSONÂNCIA (Progressao_de_nivel.md).
+_MARCOS_ATRIBUTO = (6, 12, 18, 24, 30)            # +1 ponto de atributo em cada
+_MARCOS_PERICIA = (5, 10, 15, 20, 25, 30)         # +1 perícia treinada em cada
+_GRAUS_ECO = (1, 5, 10, 15, 20, 25, 30)           # +1 eco em cada (máx 7)
+
+
+def clampar_grau(grau: int) -> int:
+    """Restringe o GRAU DE RESSONÂNCIA ao intervalo válido [1, 30]."""
+    try:
+        return max(GRAU_MIN, min(GRAU_MAX, int(grau)))
+    except (TypeError, ValueError):
+        return GRAU_MIN
+
+
+def soma_atributos(grau: int) -> int:
+    """Soma alvo dos atributos no GRAU: 10 na criação + 1 por marco de atributo.
+
+    Marcos em 6/12/18/24/30 concedem +1 ponto cada (Progressao_de_nivel.md).
+    """
+    g = clampar_grau(grau)
+    return 10 + sum(1 for marco in _MARCOS_ATRIBUTO if g >= marco)
+
+
+def total_pericias(grau: int) -> int:
+    """Nº de PERÍCIAS treinadas no GRAU: 3 no grau 1 + 1 por marco de perícia.
+
+    Marcos em 5/10/15/20/25/30 (Progressao_de_nivel.md).
+    """
+    g = clampar_grau(grau)
+    return 3 + sum(1 for marco in _MARCOS_PERICIA if g >= marco)
+
+
+def total_ecos(grau: int) -> int:
+    """Nº de ECOS adquiridos no GRAU (graus 1/5/10/15/20/25/30, máx 7)."""
+    g = clampar_grau(grau)
+    return sum(1 for marco in _GRAUS_ECO if g >= marco)
 
 
 def rolar(quantidade: int, lados: int, _rng: random.Random | None = None) -> list[int]:
     """Rola `quantidade` dados de `lados` lados. Aceita `_rng` para testes determinísticos."""
     rng: random.Random = _rng or random.SystemRandom()  # type: ignore[assignment]
-    return [rng.randint(1, lados) for _ in range(quantidade)]
+    return [rng.randint(1, lados) for _ in range(max(0, quantidade))]
 
 
-def calcular_vida(nivel: int, vitalidade: int, _rng: random.Random | None = None) -> int:
-    """VIDA = 8 + (NÍVEL × VITALIDADE) + soma de NÍVEL rolagens de 1d6."""
-    dados = rolar(nivel, 6, _rng)
-    return 8 + (nivel * vitalidade) + sum(dados)
+def calcular_vida(grau: int, vitalidade: int, _rng: random.Random | None = None) -> int:
+    """VIDA MÁXIMA = 8 + (GRAU × VITALIDADE) + soma de GRAU rolagens de 1d6.
 
-
-def calcular_conexao(nivel: int, sintonia: int, _rng: random.Random | None = None) -> int:
-    """CONEXÃO = 4 + (NÍVEL × SINTONIA) + soma de NÍVEL rolagens de 1d4."""
-    dados = rolar(nivel, 4, _rng)
-    return 4 + (nivel * sintonia) + sum(dados)
-
-
-def validar_atributos(atributos: dict[str, int]) -> tuple[bool, str]:
+    (Vida.md: a cada grau adquirido rola-se 1d6 e soma-se à VIDA MÁXIMA.)
     """
-    Valida os atributos do conjurador conforme as regras:
-    - Valores de 0 a 3 cada
+    g = clampar_grau(grau)
+    dados = rolar(g, 6, _rng)
+    return 8 + (g * vitalidade) + sum(dados)
+
+
+def calcular_conexao(grau: int, sintonia: int, _rng: random.Random | None = None) -> int:
+    """CONEXÃO MÁXIMA = GRAU + (SINTONIA × 2) + 1d4 (Conexao.md)."""
+    g = clampar_grau(grau)
+    d4 = rolar(1, 4, _rng)[0]
+    return g + (sintonia * 2) + d4
+
+
+def validar_atributos(atributos: dict[str, int], grau: int = 1) -> tuple[bool, str]:
+    """
+    Valida os atributos do conjurador conforme as regras (Atributos.md):
+    - Valores de 0 a 6 cada
     - No máximo um atributo zerado
-    - Soma obrigatoriamente igual a 10
+    - Soma igual a soma_atributos(GRAU) — 10 na criação + 1 por marco de atributo
     Retorna (True, "") se válido, ou (False, mensagem_de_erro).
     """
     valores = [atributos.get(a, 0) for a in ATRIBUTOS]
 
     for nome, val in zip(ATRIBUTOS, valores):
-        if not isinstance(val, int) or not (0 <= val <= 3):
-            return False, f"Atributo '{nome}' = {val!r} fora do intervalo [0, 3]"
+        if not isinstance(val, int) or not (ATR_MIN <= val <= ATR_MAX):
+            return False, f"Atributo '{nome}' = {val!r} fora do intervalo [{ATR_MIN}, {ATR_MAX}]"
 
     zeros = sum(1 for v in valores if v == 0)
     if zeros > 1:
         return False, f"{zeros} atributos zerados; no máximo um é permitido"
 
+    alvo = soma_atributos(grau)
     total = sum(valores)
-    if total != 10:
-        return False, f"Soma dos atributos = {total}; deve ser exatamente 10"
+    if total != alvo:
+        return False, f"Soma dos atributos = {total}; deve ser exatamente {alvo} (grau {clampar_grau(grau)})"
 
     return True, ""
 
 
-def corrigir_atributos(atributos: dict[str, int]) -> dict[str, int]:
+def corrigir_atributos(atributos: dict[str, int], grau: int = 1) -> dict[str, int]:
     """
     Corrige atributos inválidos retornados pelo LLM para satisfazer as regras.
-    Trunça valores fora do intervalo, elimina zeros extras e ajusta a soma para 10.
+    Trunca valores fora de [0, 6], elimina zeros extras e ajusta a soma para
+    soma_atributos(GRAU). Preserva, quando possível, o único atributo zerado.
     """
-    corrigido = {a: max(0, min(3, int(atributos.get(a, 1)))) for a in ATRIBUTOS}
+    alvo = soma_atributos(grau)
+    corrigido = {a: max(ATR_MIN, min(ATR_MAX, int(atributos.get(a, 1)))) for a in ATRIBUTOS}
 
     # Garante no máximo um zero (mantém o primeiro encontrado)
     zeros = [a for a in ATRIBUTOS if corrigido[a] == 0]
@@ -166,42 +198,40 @@ def corrigir_atributos(atributos: dict[str, int]) -> dict[str, int]:
 
     zero_attr = next((a for a in ATRIBUTOS if corrigido[a] == 0), None)
 
-    # Aumenta atributos não-máximos até soma = 10
+    # Aumenta atributos não-máximos até a soma alvo
     for a in ATRIBUTOS:
-        if sum(corrigido.values()) >= 10:
+        if sum(corrigido.values()) >= alvo:
             break
-        espaco = 3 - corrigido[a]
-        add = min(espaco, 10 - sum(corrigido.values()))
+        espaco = ATR_MAX - corrigido[a]
+        add = min(espaco, alvo - sum(corrigido.values()))
         corrigido[a] += add
 
-    # Diminui atributos não-mínimos até soma = 10
+    # Diminui atributos não-mínimos até a soma alvo
     for a in reversed(ATRIBUTOS):
-        if sum(corrigido.values()) <= 10:
+        if sum(corrigido.values()) <= alvo:
             break
         if a == zero_attr:
             continue  # Não toca no atributo intencionalmente zerado
-        remove = min(corrigido[a] - 1, sum(corrigido.values()) - 10)
+        remove = min(corrigido[a] - 1, sum(corrigido.values()) - alvo)
         corrigido[a] -= remove
 
     return corrigido
 
 
-def contar_pericias(escola: str, astucia: int) -> int:
-    """Número de perícias de um conjurador = ESCOLA(escolhas) + ASTÚCIA + 2."""
-    escola_u = escola.upper() if isinstance(escola, str) else ""
-    _, escolhas = ESCOLAS_PERICIAS.get(escola_u, ([], 2))
-    return escolhas + max(0, int(astucia)) + 2
+def contar_pericias(grau: int) -> int:
+    """Número de PERÍCIAS treinadas de um conjurador no GRAU (= total_pericias)."""
+    return total_pericias(grau)
 
 
-def ajustar_pericias(escola: str, astucia: int, pericias) -> list[str]:
+def ajustar_pericias(escola: str, grau: int, pericias) -> list[str]:
     """
-    Ajusta a lista de perícias para conter exatamente o número correto pela regra
-    ESCOLA + ASTÚCIA + 2. Mantém as perícias válidas fornecidas (sem duplicar) e,
-    se faltarem, preenche primeiro com o pool da ESCOLA e depois com as demais.
+    Ajusta a lista de perícias para conter exatamente total_pericias(GRAU) itens.
+    Mantém as perícias válidas fornecidas (sem duplicar) e, se faltarem, preenche
+    primeiro com o pool da ESCOLA e depois com as demais perícias.
     """
     escola_u = escola.upper() if isinstance(escola, str) else ""
     pool, _ = ESCOLAS_PERICIAS.get(escola_u, ([], 2))
-    alvo = contar_pericias(escola_u, astucia)
+    alvo = total_pericias(grau)
 
     final: list[str] = []
     for p in pericias or []:

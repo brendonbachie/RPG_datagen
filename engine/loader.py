@@ -1,29 +1,29 @@
-# Carrega todos os arquivos .txt de regras do repositório e retorna como texto único.
+# Carrega as regras oficiais do Sistema das Relíquias e retorna como texto único.
+#
+# Fonte da verdade: o diretório `regras/`, espelho do repositório
+# https://github.com/Tody0224/RPG_scheema (definições de termos + schemas).
+# Os arquivos .txt antigos de `Mundo/` e da raiz ficaram desatualizados e NÃO
+# são mais carregados — as regras vigentes vivem apenas em `regras/`.
 import pathlib
 
 _RAIZ = pathlib.Path(__file__).parent.parent.resolve()
-
-# Pastas que não contêm regras do sistema
-_EXCLUIR_DIRS = {"engine", "tests", "repo_clone", ".git", "__pycache__"}
+_DIR_REGRAS = _RAIZ / "regras"
 
 _cache: str | None = None
 
 
 def carregar_regras() -> str:
-    """Lê todos os .txt de regras e retorna texto concatenado (com cache)."""
+    """Lê todos os .md de `regras/` e retorna o texto concatenado (com cache)."""
     global _cache
     if _cache is not None:
         return _cache
 
     partes: list[str] = []
-    for caminho in sorted(_RAIZ.rglob("*.txt")):
-        partes_rel = caminho.relative_to(_RAIZ).parts
-        # Ignora se algum componente do caminho é uma pasta excluída ou oculta
-        if any(p in _EXCLUIR_DIRS or p.startswith(".") for p in partes_rel[:-1]):
-            continue
+    for caminho in sorted(_DIR_REGRAS.rglob("*.md")):
         try:
             texto = caminho.read_text(encoding="utf-8", errors="replace").strip()
-            partes.append(f"=== {'/'.join(partes_rel)} ===\n{texto}")
+            rel = caminho.relative_to(_DIR_REGRAS)
+            partes.append(f"=== {rel.as_posix()} ===\n{texto}")
         except Exception:
             pass
 

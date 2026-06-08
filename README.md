@@ -82,8 +82,10 @@ ollama pull qwen3:8b
 
 ## 3 — Ampliar o contexto (IMPORTANTE)
 
-As regras do sistema têm ~13 000 tokens. O `num_ctx` padrão do Ollama é 2 048,
-o que **corta as regras** e produz resultados incorretos.
+As regras do sistema (em `regras/`, espelho do repositório
+[RPG_scheema](https://github.com/Tody0224/RPG_scheema)) têm ~12 000 tokens. O
+`num_ctx` padrão do Ollama é 2 048, o que **corta as regras** e produz
+resultados incorretos.
 
 ### Opção A — Modelfile (recomendado, persistente)
 
@@ -112,7 +114,7 @@ python gerador.py <tipo> "<conceito>" [opções]
 
 # Exemplos
 python gerador.py conjurador "um espadachim de matriz incêndio"
-python gerador.py conjurador "ladra sombria e astuta" --nivel 3
+python gerador.py conjurador "ladra sombria e astuta" --grau 3
 python gerador.py reliquia   "machado de gelo de um urso glacial"
 python gerador.py conjuracao "raio espiral da tempestade"
 python gerador.py familiar   "serpente feita de sombras"
@@ -160,9 +162,10 @@ pytest tests/ -v
 
 Os testes cobrem:
 - **`rolar`** — quantidade, intervalo, determinismo por seed
-- **`calcular_vida`** — fórmula `8 + (N×VIT) + N×1d6`
-- **`calcular_conexao`** — fórmula `4 + (N×SINT) + N×1d4`
-- **`validar_atributos`** — soma = 10, valores 0–3, no máximo um zero
+- **`calcular_vida`** — fórmula `8 + (GRAU×VIT) + GRAU×1d6`
+- **`calcular_conexao`** — fórmula `GRAU + (SINT×2) + 1d4`
+- **progressão de grau** — soma de atributos, nº de perícias e ecos por grau
+- **`validar_atributos`** — soma por grau, valores 0–6, no máximo um zero
 - **`corrigir_atributos`** — correção de saídas inválidas do LLM
 
 ---
@@ -174,15 +177,18 @@ RPG/
 ├── gerador.py          # CLI — subcomandos conjurador/reliquia/conjuracao/familiar
 ├── gui.py              # Interface gráfica (tkinter)
 ├── engine/
-│   ├── loader.py       # Carrega todos os .txt de regras no system prompt
-│   ├── regras.py       # Regras hard-coded: validação, VIDA, CONEXÃO, dados
+│   ├── loader.py       # Carrega as regras de regras/ no system prompt
+│   ├── regras.py       # Regras hard-coded: validação, VIDA, CONEXÃO, progressão, dados
 │   ├── schemas.py      # JSON Schemas para saída estruturada do Ollama
-│   ├── biblioteca.py   # Lista persistente de conjurações (habilidades disponíveis)
+│   ├── ficha.py        # Renderização das fichas em texto
+│   ├── biblioteca.py   # Listas persistentes por tipo (conjurações = habilidades)
 │   └── ollama.py       # Cliente HTTP (urllib) para a API do Ollama
+├── regras/             # Fonte da verdade das regras (espelho de RPG_scheema)
+│   ├── Definicoes/     # Definições de termos (Vida, Conexão, Atributos, Escolas…)
+│   └── Schemas/        # Schemas oficiais (Conjurador, Relíquia, Conjuração, Familiar)
 ├── biblioteca/
 │   └── conjuracoes.json # Banco acumulado de conjurações geradas (criado em runtime)
-├── tests/
-│   └── test_regras.py  # Testes pytest (sem Ollama)
+├── tests/              # Testes pytest (sem Ollama)
 ├── Modelfile           # Configuração do modelo com num_ctx=16384
 └── README.md
 ```
@@ -194,7 +200,7 @@ Usuário digita conceito
       │
       ▼
 gerador.py
-      │  carrega todas as regras (.txt)
+      │  carrega todas as regras (regras/*.md)
       │  monta system prompt (regras) + user prompt (conceito)
       │  envia JSON Schema no campo "format"
       ▼
@@ -213,17 +219,20 @@ Resultado JSON final
 
 | Regra | Implementação |
 |---|---|
-| Atributos somam 10 | `validar_atributos` + `corrigir_atributos` |
-| Valores 0–3, máx 1 zero | idem |
-| VIDA = 8 + N×VIT + N×1d6 | `calcular_vida` |
-| CONEXÃO = 4 + N×SINT + N×1d4 | `calcular_conexao` |
-| Nº de perícias = ESCOLA + ASTÚCIA + 2 | `contar_pericias` + `ajustar_pericias` |
+| Soma de atributos por grau (10 + marcos 6/12/18/24/30) | `soma_atributos` + `validar_atributos` + `corrigir_atributos` |
+| Valores 0–6, máx 1 zero | idem |
+| VIDA = 8 + GRAU×VIT + GRAU×1d6 | `calcular_vida` |
+| CONEXÃO = GRAU + SINT×2 + 1d4 | `calcular_conexao` |
+| Nº de perícias = 3 + marcos 5/10/15/20/25/30 | `total_pericias` + `ajustar_pericias` |
+| Nº de ecos (graus 1/5/10/…/30, máx 7) | `total_ecos` |
 | Pool de perícias por escola | `ESCOLAS_PERICIAS` |
-| Nível do conjurador = valor pedido | forçado em `gerar_conjurador` |
-| Matrizes, núcleos, vetores… | enums nos JSON Schemas |
+| Grau de ressonância (1–30) = valor pedido | forçado em `gerar_conjurador` |
+| Conjurações da relíquia: 3 de custo 0 + 3 de custo 1 | `_resolver_habilidades` |
+| Matrizes, núcleos, escolas… | enums nos JSON Schemas |
 
-O LLM **nunca** calcula VIDA, CONEXÃO, a quantidade de perícias, nem valida a
-distribuição de atributos — tudo isso é feito deterministicamente em Python.
+O LLM **nunca** calcula VIDA, CONEXÃO, a quantidade de perícias/ecos, nem valida
+a distribuição de atributos — tudo isso é feito deterministicamente em Python,
+conforme as regras de `regras/` (espelho do repositório RPG_scheema).
 
 ### Habilidades = conjurações (biblioteca compartilhada)
 
@@ -232,9 +241,11 @@ uma lista persistente em `biblioteca/conjuracoes.json`:
 
 - Toda vez que uma **conjuração** é gerada (CLI, GUI ou indiretamente), ela é
   **adicionada à biblioteca**.
-- Criações que possuem habilidades — **familiar** (`habilidades`) e **relíquia**
-  (`conjuracoes`) — **selecionam** suas habilidades da biblioteca, preferindo a
-  mesma matriz. Se a biblioteca for **insuficiente**, novas conjurações são
-  geradas para preencher (e também entram na lista).
+- Criações que possuem habilidades — **familiar** (`habilidades_fisicas` da
+  matriz NEUTRA + `habilidades_matriz` da matriz do familiar) e **relíquia**
+  (`conjuracoes`: 6 iniciais — 3 de custo 0 e 3 de custo 1) — **selecionam** suas
+  habilidades da biblioteca, preferindo a mesma matriz (e o custo, no caso da
+  relíquia). Se a biblioteca for **insuficiente**, novas conjurações são geradas
+  para preencher (e também entram na lista).
 
 O caminho do arquivo pode ser trocado com a variável `RPG_BIBLIOTECA`.

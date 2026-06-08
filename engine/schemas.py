@@ -1,24 +1,33 @@
 # JSON Schemas para saída estruturada via Ollama.
 # Cada schema é passado no campo "format" da chamada à API.
+# Espelham os schemas oficiais de regras/Schemas/ (RPG_scheema).
 
-# PERÍCIAS, RARIDADES, MATRIZES e EFEITOS vêm de regras.py (fonte única).
-from engine.regras import EFEITOS, MATRIZES, PERICIAS, RARIDADES
-
-SUBMATRIZES = ["ONDA", "FÚRIA", "ESPORO", "TEMPERATURA", "ESPIRAL", "NENHUMA"]
-
-ESCOLAS = ["DESTEMIDO", "CANALIZADOR", "INABALAVEL", "OPORTUNISTA", "CALCULISTA", "FACILITADOR"]
+# Enums e ranges vêm de regras.py (fonte única).
+from engine.regras import (
+    COBERTURAS,
+    ESCOLAS,
+    GASTOS_ACAO,
+    GRAU_MAX,
+    GRAU_MIN,
+    HABITOS,
+    MATRIZES,
+    PERICIAS,
+    PORTES,
+    SOCIALIZACOES,
+    SUBMATRIZES,
+    TEMPERAMENTOS,
+)
 
 NUCLEOS = ["IMPACTO", "CANALIZAÇÃO", "DEFERIMENTO"]
 
-VETORES = ["BRUTALIDADE", "RAPIDEZ", "VITALIDADE", "INFLUÊNCIA", "SINTONIA", "ASTÚCIA"]
-
+# Alcance: o schema oficial usa apenas estas quatro faixas.
 ALCANCES = ["CURTO", "MÉDIO", "LONGO", "EXTREMO"]
 
-AREAS = ["INDIVIDUAL", "LINHA", "CONE", "CÍRCULO", "ZONA"]
+# Área de ação da CONJURAÇÃO (Schema_Conjuracao.md): ALVO em vez de INDIVIDUAL.
+AREAS = ["ALVO", "LINHA", "CONE", "CÍRCULO", "ZONA"]
 
-TIPOS_DANO = ["PERFURAÇÃO", "CORTE", "IMPACTO", "MATRIZ"]
-
-NIVEIS_RELIQUIA = ["USUAL", "CERIMONIAL", "CATACLISMA"]
+# Nível da relíquia (Schema_Reliquia.md): CATACLISMO (não "CATACLISMA").
+NIVEIS_RELIQUIA = ["USUAL", "CERIMONIAL", "CATACLISMO"]
 
 _DADO_DANO_SCHEMA = {
     "type": "object",
@@ -29,109 +38,132 @@ _DADO_DANO_SCHEMA = {
     },
 }
 
+# ─── Conjurador ───────────────────────────────────────────────────────────────
+# VIDA e CONEXÃO (atual/máxima) são calculadas em código e injetadas depois —
+# não entram no schema para o LLM não "chutar" os valores.
 SCHEMA_CONJURADOR = {
     "type": "object",
-    "required": ["nome", "nivel", "idade", "escola", "atributos", "pericias", "historia", "aparencia"],
+    "required": [
+        "nome", "idade", "grau_ressonancia", "escola",
+        "atributos", "pericias", "ecos", "reliquias",
+        "historia", "aparencia",
+    ],
     "properties": {
-        "nome":     {"type": "string"},
-        "nivel":    {"type": "integer", "minimum": 1, "maximum": 10},
-        "idade":    {"type": "string"},
-        "escola":   {"type": "string", "enum": ESCOLAS},
+        "nome":             {"type": "string"},
+        "idade":            {"type": "integer", "minimum": 0},
+        "grau_ressonancia": {"type": "integer", "minimum": GRAU_MIN, "maximum": GRAU_MAX},
+        "escola":           {"type": "string", "enum": ESCOLAS},
         "atributos": {
             "type": "object",
             "required": ["brutalidade", "rapidez", "vitalidade", "influencia", "sintonia", "astucia"],
             "properties": {
-                "brutalidade": {"type": "integer", "minimum": 0, "maximum": 3},
-                "rapidez":     {"type": "integer", "minimum": 0, "maximum": 3},
-                "vitalidade":  {"type": "integer", "minimum": 0, "maximum": 3},
-                "influencia":  {"type": "integer", "minimum": 0, "maximum": 3},
-                "sintonia":    {"type": "integer", "minimum": 0, "maximum": 3},
-                "astucia":     {"type": "integer", "minimum": 0, "maximum": 3},
+                "brutalidade": {"type": "integer", "minimum": 0, "maximum": 6},
+                "rapidez":     {"type": "integer", "minimum": 0, "maximum": 6},
+                "vitalidade":  {"type": "integer", "minimum": 0, "maximum": 6},
+                "influencia":  {"type": "integer", "minimum": 0, "maximum": 6},
+                "sintonia":    {"type": "integer", "minimum": 0, "maximum": 6},
+                "astucia":     {"type": "integer", "minimum": 0, "maximum": 6},
             },
         },
-        "pericias":  {
+        "pericias": {
             "type": "array",
             "items": {"type": "string", "enum": PERICIAS},
             "minItems": 1,
         },
+        # ECOS: nomes próprios das habilidades passivas (a quantidade exata é
+        # ajustada pelo sistema conforme o grau).
+        "ecos": {"type": "array", "items": {"type": "string"}},
+        # RELÍQUIAS vinculadas ao conjurador (nomes próprios; ao menos uma).
+        "reliquias": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "historia":  {"type": "string"},
         "aparencia": {"type": "string"},
     },
 }
 
+# ─── Relíquia ─────────────────────────────────────────────────────────────────
+# Esquema enxuto (Schema_Reliquia.md): sem familiar embutido, vetor, forma,
+# área, tipos de dano ou multiplicador de crítico. As conjurações iniciais
+# (6: três de custo 0 e três de custo 1) são resolvidas em código.
 SCHEMA_RELIQUIA = {
     "type": "object",
     "required": [
-        "nome", "descricao",
-        "familiar_nome", "familiar_descricao", "familiar_comportamento",
-        "matriz", "submatriz", "forma", "nucleo", "vetor",
-        "nivel", "alcance", "area", "tipos_dano", "dado_dano", "mult_critico",
-        "conjuracoes",
+        "nome", "descricao", "matriz", "submatriz",
+        "nucleo", "nivel", "alcance", "dado_dano", "conjuracoes",
     ],
     "properties": {
-        "nome":                   {"type": "string"},
-        "descricao":              {"type": "string"},
-        "familiar_nome":          {"type": "string"},
-        "familiar_descricao":     {"type": "string"},
-        "familiar_comportamento": {"type": "string"},
-        "matriz":                 {"type": "string", "enum": MATRIZES},
-        "submatriz":              {"type": "string", "enum": SUBMATRIZES},
-        "forma":                  {"type": "string"},
-        "nucleo":                 {"type": "string", "enum": NUCLEOS},
-        "vetor":                  {"type": "string", "enum": VETORES},
-        "nivel":                  {"type": "string", "enum": NIVEIS_RELIQUIA},
-        "alcance":                {"type": "string", "enum": ALCANCES},
-        "area":                   {"type": "string", "enum": AREAS},
-        "tipos_dano":             {
-            "type": "array",
-            "items": {"type": "string", "enum": TIPOS_DANO},
-            "minItems": 1,
-        },
-        "dado_dano":              _DADO_DANO_SCHEMA,
-        "mult_critico":           {"type": "integer", "minimum": 2, "maximum": 4},
-        "conjuracoes":            {"type": "array", "items": {"type": "string"}},
+        "nome":        {"type": "string"},
+        "descricao":   {"type": "string", "minLength": 80},
+        "matriz":      {"type": "string", "enum": MATRIZES},
+        "submatriz":   {"type": "string", "enum": SUBMATRIZES},
+        "nucleo":      {"type": "string", "enum": NUCLEOS},
+        "nivel":       {"type": "string", "enum": NIVEIS_RELIQUIA},
+        "alcance":     {"type": "string", "enum": ALCANCES},
+        "dado_dano":   _DADO_DANO_SCHEMA,
+        "conjuracoes": {"type": "array", "items": {"type": "string"}},
     },
 }
 
+# ─── Conjuração ───────────────────────────────────────────────────────────────
 SCHEMA_CONJURACAO = {
     "type": "object",
     "required": [
-        "nome", "descricao", "matriz", "submatriz", "nivel",
-        "alcance", "area", "conexao_custo", "conexao_ganho",
-        "tem_dano", "dado_dano", "efeitos",
+        "nome", "descricao", "matriz", "submatriz",
+        "custo", "ganho_conexao", "gasto_acao",
+        "alcance", "area", "tem_dano", "dado_dano", "efeitos",
     ],
     "properties": {
-        "nome":           {"type": "string"},
+        "nome":          {"type": "string"},
         # minLength evita descrição vazia ou eco do conceito.
-        "descricao":      {"type": "string", "minLength": 80},
-        "matriz":         {"type": "string", "enum": MATRIZES},
-        "submatriz":      {"type": "string", "enum": SUBMATRIZES},
-        "nivel":          {"type": "integer", "minimum": 0, "maximum": 3},
-        "alcance":        {"type": "string", "enum": ALCANCES},
-        "area":           {"type": "string", "enum": AREAS},
-        "conexao_custo":  {"type": "integer", "minimum": 0},
-        "conexao_ganho":  {"type": "integer", "minimum": 0},
-        # tem_dano=false → dado_dano pode ser ignorado (conjuração utilitária)
-        "tem_dano":       {"type": "boolean"},
-        "dado_dano":      _DADO_DANO_SCHEMA,
-        # efeitos: SOMENTE condições (IMOBILIZADO, CAÍDO…) e/ou manobras
-        # (EMPURRAR, DERRUBAR…) — restrito por enum para não vazar texto livre.
-        "efeitos":        {"type": "array", "items": {"type": "string", "enum": EFEITOS}},
+        "descricao":     {"type": "string", "minLength": 80},
+        "matriz":        {"type": "string", "enum": MATRIZES},
+        "submatriz":     {"type": "string", "enum": SUBMATRIZES},
+        "custo":         {"type": "integer", "minimum": 0},
+        "ganho_conexao": {"type": "integer", "minimum": 0},
+        "gasto_acao":    {"type": "string", "enum": GASTOS_ACAO},
+        "alcance":       {"type": "string", "enum": ALCANCES},
+        "area":          {"type": "string", "enum": AREAS},
+        # tem_dano=false → dado_dano é ignorado (conjuração utilitária / DANO 0).
+        "tem_dano":      {"type": "boolean"},
+        "dado_dano":     _DADO_DANO_SCHEMA,
+        # efeitos: condições, manobras OU efeitos personalizados (texto livre).
+        "efeitos":       {"type": "array", "items": {"type": "string"}},
     },
 }
 
+# ─── Familiar ─────────────────────────────────────────────────────────────────
 SCHEMA_FAMILIAR = {
     "type": "object",
-    "required": ["nome", "descricao", "comportamento", "matriz", "submatriz", "habilidades", "raridade"],
+    "required": [
+        "nome", "especie_base", "matriz", "submatriz",
+        "patamar", "nivel_ameaca",
+        "porte", "cobertura", "coloracao", "caracteristicas_matriz",
+        "temperamento", "habito", "socializacao",
+        "bioma", "regiao",
+        "habilidades_fisicas", "habilidades_matriz",
+        "descricao",
+    ],
     "properties": {
         "nome":          {"type": "string"},
-        # minLength incentiva descrições substanciais (evita 'O Lobo da Noite').
-        "descricao":     {"type": "string", "minLength": 120},
-        "comportamento": {"type": "string", "minLength": 120},
+        "especie_base":  {"type": "string"},
         "matriz":        {"type": "string", "enum": MATRIZES},
         "submatriz":     {"type": "string", "enum": SUBMATRIZES},
-        "habilidades":   {"type": "array", "items": {"type": "string"}, "minItems": 1},
-        "raridade":      {"type": "string", "enum": RARIDADES},
+        "patamar":       {"type": "integer", "minimum": 1},
+        "nivel_ameaca":  {"type": "integer", "minimum": 1, "maximum": 10},
+        "porte":         {"type": "string", "enum": PORTES},
+        "cobertura":     {"type": "string", "enum": COBERTURAS},
+        "coloracao":     {"type": "string"},
+        "caracteristicas_matriz": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "temperamento":  {"type": "string", "enum": TEMPERAMENTOS},
+        "habito":        {"type": "string", "enum": HABITOS},
+        "socializacao":  {"type": "string", "enum": SOCIALIZACOES},
+        "bioma":         {"type": "string"},
+        "regiao":        {"type": "string"},
+        # Habilidades físicas (CONJURAÇÕES da matriz NEUTRA) e habilidades de
+        # MATRIZ (CONJURAÇÕES da matriz do familiar) — apenas os nomes; os
+        # detalhes mecânicos são resolvidos pela biblioteca.
+        "habilidades_fisicas": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "habilidades_matriz":  {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "descricao":     {"type": "string", "minLength": 120},
     },
 }
 

@@ -20,26 +20,9 @@ def _to_ascii(texto: str) -> str:
     return texto.translate(_ASCII_MAP)
 
 
-def _linha(char: str = "─") -> str:
-    return char * _LARGURA
-
-
-def _caixa_titulo(texto: str, char_borda: str = "═") -> str:
-    interno = f"  {texto}  "
-    pad = _LARGURA - len(interno)
-    esq = pad // 2
-    dir_ = pad - esq
-    return (
-        "╔" + char_borda * _LARGURA + "╗\n"
-        + "║" + " " * esq + interno + " " * dir_ + "║\n"
-        + "╚" + char_borda * _LARGURA + "╝"
-    )
-
-
-def _barra_attr(valor: int, maximo: int = 3) -> str:
-    preenchido = "█" * max(0, valor)
-    vazio = "░" * max(0, maximo - valor)
-    return preenchido + vazio
+def _barra_attr(valor: int, maximo: int = 6) -> str:
+    valor = max(0, min(maximo, valor))
+    return "█" * valor + "░" * (maximo - valor)
 
 
 def _wrap(texto: str, largura: int = 48, prefixo: str = "  ") -> str:
@@ -61,23 +44,28 @@ def _secao(titulo: str) -> str:
     return f"▌ {titulo.upper()}"
 
 
+def _custo_ganho(c: dict) -> tuple[int, int]:
+    """Custo e ganho de conexão de uma conjuração (nomes novos + legado)."""
+    custo = c.get("custo", c.get("conexao_custo", 0))
+    ganho = c.get("ganho_conexao", c.get("conexao_ganho", 0))
+    return custo, ganho
+
+
 def _conjuracao_resumo(c: dict) -> list[str]:
     """Linhas de texto (≤ largura) com a mecânica de uma conjuração/habilidade."""
     nome  = str(c.get("nome", "?"))
-    nivel = c.get("nivel", "?")
-    alc   = c.get("alcance", "?")
-    area  = c.get("area", "?")
+    alc   = c.get("alcance", "?") or "?"
+    area  = c.get("area", "?") or "?"
     if c.get("tem_dano"):
         dd = c.get("dado_dano") or {}
         dano = f"{dd.get('x', '?')}d{dd.get('y', '?')}"
     else:
         dano = "utilitária"
-    custo = c.get("conexao_custo", 0)
-    ganho = c.get("conexao_ganho", 0)
+    custo, ganho = _custo_ganho(c)
 
     linhas = [
         f"  • {nome}"[: _LARGURA - 2],
-        f"      {dano} · N{nivel} · {alc}/{area}"[: _LARGURA - 2],
+        f"      {dano} · {alc}/{area}"[: _LARGURA - 2],
         f"      Conexão -{custo} / +{ganho}"[: _LARGURA - 2],
     ]
     efeitos = [str(e) for e in (c.get("efeitos") or [])]
@@ -86,37 +74,58 @@ def _conjuracao_resumo(c: dict) -> list[str]:
     return linhas
 
 
+def _abrir(linhas: list[str]) -> None:
+    linhas.append("╔" + "═" * _LARGURA + "╗")
+
+
+def _row(txt: str) -> str:
+    pad = _LARGURA - len(txt) - 2
+    return f"║  {txt}" + " " * max(0, pad) + "║"
+
+
+def _div(linhas: list[str]) -> None:
+    linhas.append("╠" + "═" * _LARGURA + "╣")
+
+
+def _bloco_texto(linhas: list[str], texto: str) -> None:
+    for ln in _wrap(texto).split("\n"):
+        pad = _LARGURA - len(ln) - 2
+        linhas.append(f"║{ln}" + " " * max(0, pad) + "  ║")
+
+
 # ─── Conjurador ───────────────────────────────────────────────────────────────
 
 def ficha_conjurador(d: dict[str, Any]) -> str:
     nome   = d.get("nome", "?")
-    nivel  = d.get("nivel", 1)
-    idade  = d.get("idade") or "?"
+    grau   = d.get("grau_ressonancia", d.get("nivel", 1))
+    idade  = d.get("idade")
     escola = d.get("escola", "?")
-    vida   = d.get("vida", "?")
-    con    = d.get("conexao", "?")
+    vida_max = d.get("vida_maxima", d.get("vida", "?"))
+    vida_at  = d.get("vida_atual", vida_max)
+    con_max  = d.get("conexao_maxima", d.get("conexao", "?"))
+    con_at   = d.get("conexao_atual", con_max)
     attrs  = d.get("atributos", {})
     pericias = d.get("pericias", [])
+    ecos = d.get("ecos", [])
+    reliquias = d.get("reliquias", [])
     historia = d.get("historia", "")
     aparencia = d.get("aparencia", "")
     aviso  = d.get("_aviso", "")
 
     linhas: list[str] = []
-    linhas.append("╔" + "═" * _LARGURA + "╗")
-    titulo = f"CONJURADOR  ·  {nome.upper()}"
-    pad = _LARGURA - len(titulo) - 2
-    linhas.append(f"║  {titulo}" + " " * pad + "║")
-    sub = f"Nível {nivel}  ·  {idade}  ·  {escola}"
-    pad2 = _LARGURA - len(sub) - 2
-    linhas.append(f"║  {sub}" + " " * pad2 + "║")
-    linhas.append("╠" + "═" * _LARGURA + "╣")
+    _abrir(linhas)
+    titulo = f"CONJURADOR  ·  {str(nome).upper()}"
+    linhas.append(_row(titulo))
+    idade_str = f"{idade} anos  ·  " if idade not in (None, "", "?") else ""
+    linhas.append(_row(f"Grau {grau}  ·  {idade_str}{escola}"))
+    _div(linhas)
 
     # Stats
-    vida_str = f"VIDA: {vida}"
-    con_str  = f"CONEXÃO: {con}"
+    vida_str = f"VIDA: {vida_at}/{vida_max}"
+    con_str  = f"CONEXÃO: {con_at}/{con_max}"
     gap = _LARGURA - len(vida_str) - len(con_str) - 2
-    linhas.append(f"║  {vida_str}" + " " * gap + f"{con_str}  ║")
-    linhas.append("╠" + "═" * _LARGURA + "╣")
+    linhas.append(f"║  {vida_str}" + " " * max(0, gap) + f"{con_str}  ║")
+    _div(linhas)
 
     # Atributos + Perícias lado a lado
     nomes_attr = ["Brutalidade", "Rapidez", "Vitalidade", "Influência", "Sintonia", "Astúcia"]
@@ -132,30 +141,36 @@ def ficha_conjurador(d: dict[str, Any]) -> str:
             attr_col = f"{nomes_attr[i][:10]:<10} {barra} {val}"
         else:
             attr_col = ""
-        per_col = f"• {pericias[i][:20]}" if i < len(pericias) else ""
+        per_col = f"• {str(pericias[i])[:20]}" if i < len(pericias) else ""
         a_pad = 22 - len(attr_col)
         p_pad = 24 - len(per_col)
-        linhas.append(f"║  {attr_col}{' ' * a_pad}│  {per_col}{' ' * p_pad}║")
+        linhas.append(f"║  {attr_col}{' ' * max(0, a_pad)}│  {per_col}{' ' * max(0, p_pad)}║")
+
+    if ecos:
+        _div(linhas)
+        linhas.append(_row(_secao("ecos")))
+        for e in ecos:
+            linhas.append(_row(f"  • {e}"))
+
+    if reliquias:
+        _div(linhas)
+        linhas.append(_row(_secao("relíquias")))
+        for r in reliquias:
+            linhas.append(_row(f"  • {r}"))
 
     if aparencia:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
-        linhas.append("║  " + _secao("aparência") + " " * (_LARGURA - len(_secao("aparência")) - 4) + "  ║")
-        for ln in _wrap(aparencia).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
+        _div(linhas)
+        linhas.append(_row(_secao("aparência")))
+        _bloco_texto(linhas, aparencia)
 
     if historia:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
-        linhas.append("║  " + _secao("história") + " " * (_LARGURA - len(_secao("história")) - 4) + "  ║")
-        for ln in _wrap(historia).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
+        _div(linhas)
+        linhas.append(_row(_secao("história")))
+        _bloco_texto(linhas, historia)
 
     if aviso:
         linhas.append("╠" + "─" * _LARGURA + "╣")
-        av = f"⚠  {aviso}"
-        pad = _LARGURA - len(av) - 2
-        linhas.append(f"║  {av}" + " " * pad + "║")
+        linhas.append(_row(f"⚠  {aviso}"))
 
     linhas.append("╚" + "═" * _LARGURA + "╝")
     return "\n".join(linhas)
@@ -164,56 +179,37 @@ def ficha_conjurador(d: dict[str, Any]) -> str:
 # ─── Relíquia ─────────────────────────────────────────────────────────────────
 
 def ficha_reliquia(d: dict[str, Any]) -> str:
-    nome     = d.get("nome", "?")
-    desc     = d.get("descricao", "")
-    matriz   = d.get("matriz", "?")
-    sub      = d.get("submatriz", "NENHUMA")
-    forma    = d.get("forma", "?")
-    nucleo   = d.get("nucleo", "?")
-    vetor    = d.get("vetor", "?")
-    nivel    = d.get("nivel", "?")
-    alcance  = d.get("alcance", "?")
-    area     = d.get("area", "?")
-    dano_d   = d.get("dado_dano", {})
-    tipos    = d.get("tipos_dano", [])
-    critico  = d.get("mult_critico", "?")
-    conjs    = d.get("conjuracoes", [])
-    fam_nome = d.get("familiar_nome", "?")
-    fam_desc = d.get("familiar_descricao", "")
-    fam_comp = d.get("familiar_comportamento", "")
+    nome    = d.get("nome", "?")
+    desc    = d.get("descricao", "")
+    matriz  = d.get("matriz", "?")
+    sub     = d.get("submatriz", "NENHUMA")
+    nucleo  = d.get("nucleo", "?")
+    nivel   = d.get("nivel", "?")
+    alcance = d.get("alcance", "?")
+    dano_d  = d.get("dado_dano", {})
+    conjs   = d.get("conjuracoes", [])
 
     dano_str = f"{dano_d.get('x','?')}d{dano_d.get('y','?')}"
-    tipos_str = " · ".join(tipos) if tipos else "—"
-    subm_str = "" if sub in ("NENHUMA", None) else f" · {sub}"
+    subm_str = "" if sub in ("NENHUMA", None, "") else f" · {sub}"
 
     linhas: list[str] = []
-    linhas.append("╔" + "═" * _LARGURA + "╗")
+    _abrir(linhas)
+    linhas.append(_row(f"RELÍQUIA  ·  {str(nome).upper()}"))
+    linhas.append(_row(f"Nível {nivel}"))
+    _div(linhas)
 
-    def _row(txt: str) -> str:
-        pad = _LARGURA - len(txt) - 2
-        return f"║  {txt}" + " " * pad + "║"
-
-    linhas.append(_row(f"RELÍQUIA  ·  {nome.upper()}"))
-    linhas.append(_row(f"{forma}  ·  Nível {nivel}"))
-    linhas.append("╠" + "═" * _LARGURA + "╣")
-
-    # Propriedades mecânicas
     linhas.append(_row(f"Matriz:    {matriz}{subm_str}"))
     linhas.append(_row(f"Núcleo:    {nucleo}"))
-    linhas.append(_row(f"Vetor:     {vetor}"))
-    linhas.append(_row(f"Alcance:   {alcance:<10}  Área: {area}"))
-    linhas.append(_row(f"Dano:      {dano_str:<10}  Crit: ×{critico}"))
-    linhas.append(_row(f"Tipo:      {tipos_str}"))
+    linhas.append(_row(f"Alcance:   {alcance}"))
+    linhas.append(_row(f"Dano:      {dano_str}"))
 
     if desc:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
+        _div(linhas)
         linhas.append(_row(_secao("descrição")))
-        for ln in _wrap(desc).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
+        _bloco_texto(linhas, desc)
 
     if conjs:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
+        _div(linhas)
         linhas.append(_row(_secao("conjurações")))
         for c in conjs:
             if isinstance(c, dict):
@@ -221,19 +217,6 @@ def ficha_reliquia(d: dict[str, Any]) -> str:
                     linhas.append(_row(ln))
             else:
                 linhas.append(_row(f"  • {c}"))
-
-    # Familiar de origem
-    linhas.append("╠" + "═" * _LARGURA + "╣")
-    linhas.append(_row(f"FAMILIAR DE ORIGEM:  {fam_nome}"))
-    if fam_desc:
-        for ln in _wrap(fam_desc).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
-    if fam_comp:
-        linhas.append(_row("Comportamento:"))
-        for ln in _wrap(fam_comp).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
 
     linhas.append("╚" + "═" * _LARGURA + "╝")
     return "\n".join(linhas)
@@ -246,30 +229,23 @@ def ficha_conjuracao(d: dict[str, Any]) -> str:
     desc     = d.get("descricao", "")
     matriz   = d.get("matriz", "?")
     sub      = d.get("submatriz", "NENHUMA")
-    nivel    = d.get("nivel", 0)
     alcance  = d.get("alcance", "?")
     area     = d.get("area", "?")
-    custo    = d.get("conexao_custo", 0)
-    ganho    = d.get("conexao_ganho", 0)
+    gasto    = d.get("gasto_acao", "?")
+    custo, ganho = _custo_ganho(d)
     tem_dano = d.get("tem_dano", False)
     dano_d   = d.get("dado_dano", {})
     efeitos  = d.get("efeitos", [])
 
-    subm_str = "" if sub in ("NENHUMA", None) else f" · {sub}"
+    subm_str = "" if sub in ("NENHUMA", None, "") else f" · {sub}"
     dano_str = f"{dano_d.get('x','?')}d{dano_d.get('y','?')}" if tem_dano else "Utilitária"
     con_str  = f"▼ Custo {custo}  ·  ▲ Ganho {ganho}"
 
     linhas: list[str] = []
-    linhas.append("╔" + "═" * _LARGURA + "╗")
-
-    def _row(txt: str) -> str:
-        pad = _LARGURA - len(txt) - 2
-        return f"║  {txt}" + " " * pad + "║"
-
-    linhas.append(_row(f"CONJURAÇÃO  ·  {nome.upper()}"))
-    nivel_nome = ["Simples", "Aprimorada", "Avançada", "Extraordinária"]
-    linhas.append(_row(f"Nível {nivel}  —  {nivel_nome[min(nivel, 3)]}"))
-    linhas.append("╠" + "═" * _LARGURA + "╣")
+    _abrir(linhas)
+    linhas.append(_row(f"CONJURAÇÃO  ·  {str(nome).upper()}"))
+    linhas.append(_row(f"{gasto}"))
+    _div(linhas)
 
     linhas.append(_row(f"Matriz:    {matriz}{subm_str}"))
     linhas.append(_row(f"Alcance:   {alcance:<12}  Área: {area}"))
@@ -277,17 +253,15 @@ def ficha_conjuracao(d: dict[str, Any]) -> str:
     linhas.append(_row(f"Conexão:   {con_str}"))
 
     if efeitos:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
+        _div(linhas)
         linhas.append(_row(_secao("efeitos")))
         for e in efeitos:
             linhas.append(_row(f"  • {e}"))
 
     if desc:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
+        _div(linhas)
         linhas.append(_row(_secao("descrição")))
-        for ln in _wrap(desc).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
+        _bloco_texto(linhas, desc)
 
     linhas.append("╚" + "═" * _LARGURA + "╝")
     return "\n".join(linhas)
@@ -296,51 +270,65 @@ def ficha_conjuracao(d: dict[str, Any]) -> str:
 # ─── Familiar ─────────────────────────────────────────────────────────────────
 
 def ficha_familiar(d: dict[str, Any]) -> str:
-    nome       = d.get("nome", "?")
-    desc       = d.get("descricao", "")
-    comp       = d.get("comportamento", "")
-    matriz     = d.get("matriz", "?")
-    sub        = d.get("submatriz", "NENHUMA")
-    habs       = d.get("habilidades", [])
-    raridade   = d.get("raridade", "?")
+    nome     = d.get("nome", "?")
+    especie  = d.get("especie_base", "")
+    matriz   = d.get("matriz", "?")
+    sub      = d.get("submatriz", "NENHUMA")
+    patamar  = d.get("patamar", "?")
+    ameaca   = d.get("nivel_ameaca", "?")
+    porte    = d.get("porte", "?")
+    cobertura = d.get("cobertura", "?")
+    coloracao = d.get("coloracao", "")
+    carac    = d.get("caracteristicas_matriz", [])
+    temper   = d.get("temperamento", "?")
+    habito   = d.get("habito", "?")
+    social   = d.get("socializacao", "?")
+    bioma    = d.get("bioma", "")
+    regiao   = d.get("regiao", "")
+    fisicas  = d.get("habilidades_fisicas", [])
+    de_matriz = d.get("habilidades_matriz", [])
+    desc     = d.get("descricao", "")
 
-    subm_str = "" if sub in ("NENHUMA", None) else f" · {sub}"
+    subm_str = "" if sub in ("NENHUMA", None, "") else f" · {sub}"
 
     linhas: list[str] = []
-    linhas.append("╔" + "═" * _LARGURA + "╗")
+    _abrir(linhas)
+    linhas.append(_row(f"FAMILIAR  ·  {str(nome).upper()}"))
+    if especie:
+        linhas.append(_row(f"Espécie: {especie}"))
+    _div(linhas)
+    linhas.append(_row(f"Matriz:    {matriz}{subm_str}"))
+    linhas.append(_row(f"Patamar:   {patamar}      Ameaça: {ameaca}"))
+    linhas.append(_row(f"Porte:     {porte:<12}  Cobertura: {cobertura}"))
+    if coloracao:
+        linhas.append(_row(f"Cor:       {coloracao}"[: _LARGURA - 2]))
+    linhas.append(_row(f"Comport.:  {temper} · {habito} · {social}"[: _LARGURA - 2]))
+    if bioma or regiao:
+        hab = " · ".join(x for x in (bioma, regiao) if x)
+        linhas.append(_row(f"Habitat:   {hab}"[: _LARGURA - 2]))
 
-    def _row(txt: str) -> str:
-        pad = _LARGURA - len(txt) - 2
-        return f"║  {txt}" + " " * pad + "║"
+    if carac:
+        _div(linhas)
+        linhas.append(_row(_secao("características da matriz")))
+        for c in carac:
+            linhas.append(_row(f"  • {c}"[: _LARGURA - 2]))
 
-    linhas.append(_row(f"FAMILIAR  ·  {nome.upper()}"))
-    linhas.append(_row(f"Raridade: {raridade}"))
-    linhas.append("╠" + "═" * _LARGURA + "╣")
-    linhas.append(_row(f"Matriz:   {matriz}{subm_str}"))
+    if fisicas:
+        _div(linhas)
+        linhas.append(_row(_secao("habilidades físicas")))
+        for h in fisicas:
+            linhas.append(_row(f"  • {h}"))
 
-    if habs:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
-        linhas.append(_row(_secao("habilidades")))
-        for h in habs:
-            if isinstance(h, dict):
-                for ln in _conjuracao_resumo(h):
-                    linhas.append(_row(ln))
-            else:
-                linhas.append(_row(f"  • {h}"))
+    if de_matriz:
+        _div(linhas)
+        linhas.append(_row(_secao("habilidades de matriz")))
+        for h in de_matriz:
+            linhas.append(_row(f"  • {h}"))
 
     if desc:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
-        linhas.append(_row(_secao("aparência")))
-        for ln in _wrap(desc).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
-
-    if comp:
-        linhas.append("╠" + "═" * _LARGURA + "╣")
-        linhas.append(_row(_secao("comportamento")))
-        for ln in _wrap(comp).split("\n"):
-            pad = _LARGURA - len(ln) - 2
-            linhas.append(f"║{ln}" + " " * pad + "  ║")
+        _div(linhas)
+        linhas.append(_row(_secao("descrição")))
+        _bloco_texto(linhas, desc)
 
     linhas.append("╚" + "═" * _LARGURA + "╝")
     return "\n".join(linhas)

@@ -9,23 +9,23 @@ def test_bloco_vazio():
 
 def test_bloco_lista_valores_e_dado():
     bloco = _bloco_preferencias({
-        "matriz": "INCÊNDIO", "nivel": 2,
+        "matriz": "INCÊNDIO", "custo": 2,
         "dado_x": 2, "dado_y": 8, "tem_dano": True,
         "efeitos": ["IMOBILIZADO", "EMPURRAR"],
     })
     assert "matriz: INCÊNDIO" in bloco
-    assert "nível: 2" in bloco
+    assert "custo de conexão: 2" in bloco
     assert "2d8" in bloco
     assert "causa dano: sim" in bloco
     assert "IMOBILIZADO, EMPURRAR" in bloco
 
 
 def test_forcar_grava_so_permitidos():
-    res = {"matriz": "ONDA", "nivel": 0, "alcance": "CURTO"}
-    _forcar_preferencias(res, {"matriz": "INCÊNDIO", "nivel": 3},
+    res = {"matriz": "ONDA", "custo": 0, "alcance": "CURTO"}
+    _forcar_preferencias(res, {"matriz": "INCÊNDIO", "custo": 3},
                          _PREF_FORCAR["conjuracao"])
     assert res["matriz"] == "INCÊNDIO"
-    assert res["nivel"] == 3
+    assert res["custo"] == 3
     assert res["alcance"] == "CURTO"  # não foi pedido, mantém
 
 

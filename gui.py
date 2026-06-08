@@ -16,10 +16,12 @@ from engine import biblioteca
 from engine.ficha import formatar
 from engine.ollama import ErroOllama
 from engine.schemas import (
-    ALCANCES, AREAS, ESCOLAS, MATRIZES, NIVEIS_RELIQUIA, NUCLEOS,
-    SUBMATRIZES, TIPOS_DANO, VETORES,
+    ALCANCES, AREAS, ESCOLAS, MATRIZES, NIVEIS_RELIQUIA, NUCLEOS, SUBMATRIZES,
 )
-from engine.regras import PERICIAS, RARIDADES
+from engine.regras import (
+    COBERTURAS, GASTOS_ACAO, GRAU_MAX, HABITOS, PERICIAS, PORTES,
+    SOCIALIZACOES, TEMPERAMENTOS,
+)
 from gerador import gerar_conjurador, gerar_conjuracao, gerar_familiar, gerar_reliquia
 
 _DADO_Y = ["4", "6", "8", "10", "12", "20"]
@@ -264,10 +266,10 @@ class GeradorGUI:
 
         var_nivel: tk.IntVar | None = None
         if precisa_nivel:
-            ttk.Label(topo, text="Nível", style="Field.TLabel").grid(
+            ttk.Label(topo, text="Grau", style="Field.TLabel").grid(
                 row=0, column=1, padx=(0, 6), sticky="e")
             var_nivel = tk.IntVar(value=1)
-            ttk.Spinbox(topo, from_=1, to=10, textvariable=var_nivel, width=4).grid(
+            ttk.Spinbox(topo, from_=1, to=GRAU_MAX, textvariable=var_nivel, width=4).grid(
                 row=0, column=2, padx=(0, 12))
 
         btn_gerar = ttk.Button(topo, text="▶  GERAR", style="Accent.TButton")
@@ -373,13 +375,13 @@ class GeradorGUI:
         nums = lambda a, b: [str(i) for i in range(a, b + 1)]
 
         if tipo == "conjuracao":
-            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_nivel = tk.StringVar()
+            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_gasto = tk.StringVar()
             v_alc = tk.StringVar(); v_area = tk.StringVar(); v_dano = tk.StringVar()
             v_dx = tk.StringVar(); v_dy = tk.StringVar()
             v_custo = tk.StringVar(); v_ganho = tk.StringVar(); v_efe = tk.StringVar()
             lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
             lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
-            lbl(1, 0, "Nível");     combo(v_nivel, nums(0, 3), w=6).grid(row=1, column=1, sticky="w", pady=2)
+            lbl(1, 0, "Gasto ação"); combo(v_gasto, GASTOS_ACAO).grid(row=1, column=1, sticky="ew", pady=2)
             lbl(1, 2, "Alcance");   combo(v_alc, ALCANCES).grid(row=1, column=3, sticky="ew", pady=2)
             lbl(2, 0, "Área");      combo(v_area, AREAS).grid(row=2, column=1, sticky="ew", pady=2)
             lbl(2, 2, "Causa dano"); combo(v_dano, ["Sim", "Não"], w=6).grid(row=2, column=3, sticky="w", pady=2)
@@ -396,14 +398,14 @@ class GeradorGUI:
                 p = {}
                 if v_matriz.get(): p["matriz"] = v_matriz.get()
                 if v_sub.get():    p["submatriz"] = v_sub.get()
-                if v_nivel.get():  p["nivel"] = int(v_nivel.get())
+                if v_gasto.get():  p["gasto_acao"] = v_gasto.get()
                 if v_alc.get():    p["alcance"] = v_alc.get()
                 if v_area.get():   p["area"] = v_area.get()
                 if v_dano.get():   p["tem_dano"] = (v_dano.get() == "Sim")
                 if v_dx.get():     p["dado_x"] = int(v_dx.get())
                 if v_dy.get():     p["dado_y"] = int(v_dy.get())
-                if v_custo.get():  p["conexao_custo"] = int(v_custo.get())
-                if v_ganho.get():  p["conexao_ganho"] = int(v_ganho.get())
+                if v_custo.get():  p["custo"] = int(v_custo.get())
+                if v_ganho.get():  p["ganho_conexao"] = int(v_ganho.get())
                 ef = self._csv(v_efe.get())
                 if ef:             p["efeitos"] = [e.upper() for e in ef]
                 return p
@@ -422,7 +424,8 @@ class GeradorGUI:
             attrs = ttk.Frame(frame); attrs.grid(row=1, column=1, columnspan=3, sticky="w", pady=2)
             for i, (chave, rot) in enumerate(atr_chaves):
                 ttk.Label(attrs, text=rot, style="Sub.TLabel").grid(row=0, column=i * 2, padx=(0, 2))
-                ttk.Combobox(attrs, textvariable=v_atr[chave], values=["", "0", "1", "2", "3"],
+                ttk.Combobox(attrs, textvariable=v_atr[chave],
+                             values=["", "0", "1", "2", "3", "4", "5", "6"],
                              state="readonly", width=3).grid(row=0, column=i * 2 + 1, padx=(0, 8))
             lbl(2, 0, "Perícias")
             ttk.Entry(frame, textvariable=v_per).grid(row=2, column=1, columnspan=3, sticky="ew", pady=2)
@@ -432,7 +435,11 @@ class GeradorGUI:
             def coletar():
                 p = {}
                 if v_escola.get(): p["escola"] = v_escola.get()
-                if v_idade.get().strip(): p["idade"] = v_idade.get().strip()
+                if v_idade.get().strip():
+                    try:
+                        p["idade"] = int(v_idade.get().strip())
+                    except ValueError:
+                        pass
                 atr = {k: v_atr[k].get() for k, _ in atr_chaves if v_atr[k].get()}
                 if atr:
                     p["atributos"] = ", ".join(f"{k} {v}" for k, v in atr.items())  # guia (não travado)
@@ -442,54 +449,51 @@ class GeradorGUI:
 
         elif tipo == "reliquia":
             v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_nuc = tk.StringVar()
-            v_vet = tk.StringVar(); v_nivel = tk.StringVar(); v_forma = tk.StringVar()
-            v_alc = tk.StringVar(); v_area = tk.StringVar(); v_tipos = tk.StringVar()
-            v_dx = tk.StringVar(); v_dy = tk.StringVar(); v_mult = tk.StringVar()
+            v_nivel = tk.StringVar(); v_alc = tk.StringVar()
+            v_dx = tk.StringVar(); v_dy = tk.StringVar()
             lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
             lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
             lbl(1, 0, "Núcleo");    combo(v_nuc, NUCLEOS).grid(row=1, column=1, sticky="ew", pady=2)
-            lbl(1, 2, "Vetor");     combo(v_vet, VETORES).grid(row=1, column=3, sticky="ew", pady=2)
-            lbl(2, 0, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=2, column=1, sticky="ew", pady=2)
-            lbl(2, 2, "Forma")
-            ttk.Entry(frame, textvariable=v_forma).grid(row=2, column=3, sticky="ew", pady=2)
-            lbl(3, 0, "Alcance");   combo(v_alc, ALCANCES).grid(row=3, column=1, sticky="ew", pady=2)
-            lbl(3, 2, "Área");      combo(v_area, AREAS).grid(row=3, column=3, sticky="ew", pady=2)
-            lbl(4, 0, "Tipos de dano")
-            ttk.Entry(frame, textvariable=v_tipos).grid(row=4, column=1, columnspan=3, sticky="ew", pady=2)
-            lbl(5, 0, "Dado X");    combo(v_dx, nums(1, 6), w=6).grid(row=5, column=1, sticky="w", pady=2)
-            lbl(5, 2, "Dado Y");    combo(v_dy, _DADO_Y, w=6).grid(row=5, column=3, sticky="w", pady=2)
-            lbl(6, 0, "Mult. crítico"); combo(v_mult, nums(2, 4), w=6).grid(row=6, column=1, sticky="w", pady=2)
-            ttk.Label(frame, text="(tipos de dano separados por vírgula)",
-                      style="Sub.TLabel").grid(row=7, column=1, columnspan=3, sticky="w")
+            lbl(1, 2, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=1, column=3, sticky="ew", pady=2)
+            lbl(2, 0, "Alcance");   combo(v_alc, ALCANCES).grid(row=2, column=1, sticky="ew", pady=2)
+            lbl(3, 0, "Dado X");    combo(v_dx, nums(1, 6), w=6).grid(row=3, column=1, sticky="w", pady=2)
+            lbl(3, 2, "Dado Y");    combo(v_dy, _DADO_Y, w=6).grid(row=3, column=3, sticky="w", pady=2)
 
             def coletar():
                 p = {}
                 if v_matriz.get(): p["matriz"] = v_matriz.get()
                 if v_sub.get():    p["submatriz"] = v_sub.get()
                 if v_nuc.get():    p["nucleo"] = v_nuc.get()
-                if v_vet.get():    p["vetor"] = v_vet.get()
                 if v_nivel.get():  p["nivel"] = v_nivel.get()
-                if v_forma.get().strip(): p["forma"] = v_forma.get().strip()
                 if v_alc.get():    p["alcance"] = v_alc.get()
-                if v_area.get():   p["area"] = v_area.get()
-                td = self._csv(v_tipos.get())
-                if td:             p["tipos_dano"] = [t.upper() for t in td]
                 if v_dx.get():     p["dado_x"] = int(v_dx.get())
                 if v_dy.get():     p["dado_y"] = int(v_dy.get())
-                if v_mult.get():   p["mult_critico"] = int(v_mult.get())
                 return p
 
         else:  # familiar
-            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_rar = tk.StringVar()
+            v_matriz = tk.StringVar(); v_sub = tk.StringVar(); v_esp = tk.StringVar()
+            v_porte = tk.StringVar(); v_cob = tk.StringVar(); v_temp = tk.StringVar()
+            v_hab = tk.StringVar(); v_soc = tk.StringVar()
             lbl(0, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=0, column=1, sticky="ew", pady=2)
             lbl(0, 2, "Submatriz"); combo(v_sub, SUBMATRIZES).grid(row=0, column=3, sticky="ew", pady=2)
-            lbl(1, 0, "Raridade");  combo(v_rar, RARIDADES).grid(row=1, column=1, sticky="ew", pady=2)
+            lbl(1, 0, "Espécie base")
+            ttk.Entry(frame, textvariable=v_esp).grid(row=1, column=1, columnspan=3, sticky="ew", pady=2)
+            lbl(2, 0, "Porte");     combo(v_porte, PORTES).grid(row=2, column=1, sticky="ew", pady=2)
+            lbl(2, 2, "Cobertura"); combo(v_cob, COBERTURAS).grid(row=2, column=3, sticky="ew", pady=2)
+            lbl(3, 0, "Temperamento"); combo(v_temp, TEMPERAMENTOS).grid(row=3, column=1, sticky="ew", pady=2)
+            lbl(3, 2, "Hábito");    combo(v_hab, HABITOS).grid(row=3, column=3, sticky="ew", pady=2)
+            lbl(4, 0, "Socialização"); combo(v_soc, SOCIALIZACOES).grid(row=4, column=1, sticky="ew", pady=2)
 
             def coletar():
                 p = {}
                 if v_matriz.get(): p["matriz"] = v_matriz.get()
                 if v_sub.get():    p["submatriz"] = v_sub.get()
-                if v_rar.get():    p["raridade"] = v_rar.get()
+                if v_esp.get().strip(): p["especie_base"] = v_esp.get().strip()
+                if v_porte.get():  p["porte"] = v_porte.get()
+                if v_cob.get():    p["cobertura"] = v_cob.get()
+                if v_temp.get():   p["temperamento"] = v_temp.get()
+                if v_hab.get():    p["habito"] = v_hab.get()
+                if v_soc.get():    p["socializacao"] = v_soc.get()
                 return p
 
         return frame, coletar
@@ -518,7 +522,7 @@ class GeradorGUI:
              lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('matriz', '?')}"),
             ("familiar", "Familiares", biblioteca.FAMILIARES,
              self._construir_form_familiar,
-             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('raridade', '?')}"),
+             lambda c: f"{c.get('nome', '(sem nome)')}  ·  {c.get('matriz', '?')}"),
         ]
 
         # ── Barra superior: seletor de tipo + info + atualizar ──
@@ -607,7 +611,7 @@ class GeradorGUI:
             return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
 
         v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
-        v_nivel = tk.IntVar(value=0); v_alcance = tk.StringVar(); v_area = tk.StringVar()
+        v_gasto = tk.StringVar(); v_alcance = tk.StringVar(); v_area = tk.StringVar()
         v_tem_dano = tk.BooleanVar(); v_dado_x = tk.IntVar(value=1); v_dado_y = tk.StringVar(value="6")
         v_custo = tk.IntVar(value=0); v_ganho = tk.IntVar(value=0); v_efeitos = tk.StringVar()
 
@@ -615,8 +619,7 @@ class GeradorGUI:
         ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
         lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
         lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
-        lbl(2, 0, "Nível")
-        ttk.Spinbox(form, from_=0, to=3, textvariable=v_nivel, width=6).grid(row=2, column=1, sticky="w", pady=3)
+        lbl(2, 0, "Gasto ação"); combo(v_gasto, GASTOS_ACAO).grid(row=2, column=1, sticky="ew", pady=3)
         lbl(2, 2, "Alcance");   combo(v_alcance, ALCANCES).grid(row=2, column=3, sticky="ew", pady=3)
         lbl(3, 0, "Área");      combo(v_area, AREAS).grid(row=3, column=1, sticky="ew", pady=3)
         ttk.Checkbutton(form, text="Causa dano", variable=v_tem_dano).grid(row=3, column=3, sticky="w", pady=3)
@@ -639,29 +642,31 @@ class GeradorGUI:
             dd = c.get("dado_dano") or {}
             v_nome.set(c.get("nome", "")); v_matriz.set(c.get("matriz", ""))
             v_submatriz.set(c.get("submatriz", "NENHUMA"))
-            v_nivel.set(int(c.get("nivel", 0) or 0))
+            v_gasto.set(c.get("gasto_acao", ""))
             v_alcance.set(c.get("alcance", "")); v_area.set(c.get("area", ""))
             v_tem_dano.set(bool(c.get("tem_dano")))
             v_dado_x.set(int(dd.get("x", 1) or 1)); v_dado_y.set(str(dd.get("y", 6)))
-            v_custo.set(int(c.get("conexao_custo", 0) or 0))
-            v_ganho.set(int(c.get("conexao_ganho", 0) or 0))
+            v_custo.set(int(c.get("custo", c.get("conexao_custo", 0)) or 0))
+            v_ganho.set(int(c.get("ganho_conexao", c.get("conexao_ganho", 0)) or 0))
             v_efeitos.set(", ".join(c.get("efeitos") or []))
             t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", c.get("descricao", ""))
 
         def coletar(c):
             c["nome"] = v_nome.get().strip() or c.get("nome", "")
             c["matriz"] = v_matriz.get(); c["submatriz"] = v_submatriz.get()
+            c["gasto_acao"] = v_gasto.get()
             c["alcance"] = v_alcance.get(); c["area"] = v_area.get()
             c["tem_dano"] = bool(v_tem_dano.get())
             c["efeitos"] = [e.upper() for e in self._csv(v_efeitos.get())]
             c["descricao"] = t_descricao.get("1.0", tk.END).strip()
+            # remove chaves legadas, se presentes
+            c.pop("nivel", None); c.pop("conexao_custo", None); c.pop("conexao_ganho", None)
             try:
-                c["nivel"] = int(v_nivel.get())
                 c["dado_dano"] = {"x": int(v_dado_x.get()), "y": int(v_dado_y.get())}
-                c["conexao_custo"] = int(v_custo.get())
-                c["conexao_ganho"] = int(v_ganho.get())
+                c["custo"] = int(v_custo.get())
+                c["ganho_conexao"] = int(v_ganho.get())
             except (tk.TclError, ValueError):
-                self.var_status.set("✗ Valores numéricos inválidos — verifique nível/dado/conexão.")
+                self.var_status.set("✗ Valores numéricos inválidos — verifique dado/conexão.")
                 return False
             return True
 
@@ -693,8 +698,8 @@ class GeradorGUI:
         lbl(1, 0, "Escola")
         ttk.Combobox(form, textvariable=v_escola, values=ESCOLAS, state="readonly", width=14).grid(
             row=1, column=1, sticky="ew", pady=3)
-        lbl(1, 2, "Nível")
-        ttk.Spinbox(form, from_=1, to=10, textvariable=v_nivel, width=6).grid(row=1, column=3, sticky="w", pady=3)
+        lbl(1, 2, "Grau")
+        ttk.Spinbox(form, from_=1, to=GRAU_MAX, textvariable=v_nivel, width=6).grid(row=1, column=3, sticky="w", pady=3)
         lbl(2, 0, "Idade")
         ttk.Entry(form, textvariable=v_idade).grid(row=2, column=1, columnspan=3, sticky="ew", pady=3)
 
@@ -703,7 +708,7 @@ class GeradorGUI:
         attrs.grid(row=3, column=1, columnspan=3, sticky="w", pady=3)
         for i, (chave, rotulo) in enumerate(atr_chaves):
             ttk.Label(attrs, text=rotulo, style="Sub.TLabel").grid(row=0, column=i * 2, padx=(0, 2))
-            ttk.Spinbox(attrs, from_=0, to=3, textvariable=v_atr[chave], width=3).grid(
+            ttk.Spinbox(attrs, from_=0, to=6, textvariable=v_atr[chave], width=3).grid(
                 row=0, column=i * 2 + 1, padx=(0, 8))
 
         lbl(4, 0, "Perícias")
@@ -727,28 +732,35 @@ class GeradorGUI:
 
         def popular(c):
             atr = c.get("atributos") or {}
-            v_nome.set(c.get("nome", "")); v_idade.set(c.get("idade", ""))
+            v_nome.set(c.get("nome", "")); v_idade.set(str(c.get("idade", "") or ""))
             v_escola.set(c.get("escola", ""))
-            v_nivel.set(int(c.get("nivel", 1) or 1))
+            v_nivel.set(int(c.get("grau_ressonancia", c.get("nivel", 1)) or 1))
             for chave, _ in atr_chaves:
                 v_atr[chave].set(int(atr.get(chave, 1) or 0))
             v_pericias.set(", ".join(c.get("pericias") or []))
-            v_vida.set(int(c.get("vida", 0) or 0)); v_conexao.set(int(c.get("conexao", 0) or 0))
+            v_vida.set(int(c.get("vida_maxima", c.get("vida", 0)) or 0))
+            v_conexao.set(int(c.get("conexao_maxima", c.get("conexao", 0)) or 0))
             t_historia.delete("1.0", tk.END); t_historia.insert("1.0", c.get("historia", ""))
             t_aparencia.delete("1.0", tk.END); t_aparencia.insert("1.0", c.get("aparencia", ""))
 
         def coletar(c):
             c["nome"] = v_nome.get().strip() or c.get("nome", "")
-            c["idade"] = v_idade.get(); c["escola"] = v_escola.get()
+            c["escola"] = v_escola.get()
             c["pericias"] = self._csv(v_pericias.get())
             c["historia"] = t_historia.get("1.0", tk.END).strip()
             c["aparencia"] = t_aparencia.get("1.0", tk.END).strip()
+            # remove chaves legadas, se presentes
+            c.pop("nivel", None); c.pop("vida", None); c.pop("conexao", None)
             try:
-                c["nivel"] = int(v_nivel.get())
+                c["idade"] = int(v_idade.get()) if v_idade.get().strip() else 0
+                c["grau_ressonancia"] = int(v_nivel.get())
                 c["atributos"] = {chave: int(v_atr[chave].get()) for chave, _ in atr_chaves}
-                c["vida"] = int(v_vida.get()); c["conexao"] = int(v_conexao.get())
+                vida = int(v_vida.get()); con = int(v_conexao.get())
+                c["vida_maxima"] = vida; c["vida_atual"] = min(int(c.get("vida_atual", vida) or vida), vida)
+                c["conexao_maxima"] = con
+                c["conexao_atual"] = min(int(c.get("conexao_atual", con) or con), con)
             except (tk.TclError, ValueError):
-                self.var_status.set("✗ Valores numéricos inválidos — verifique nível/atributos/vida.")
+                self.var_status.set("✗ Valores numéricos inválidos — verifique grau/atributos/vida.")
                 return False
             return True
 
@@ -759,104 +771,6 @@ class GeradorGUI:
         form = ttk.Frame(parent)
         form.columnconfigure(1, weight=1)
         form.columnconfigure(3, weight=1)
-        form.rowconfigure(10, weight=1)
-
-        def lbl(r, c, txt):
-            ttk.Label(form, text=txt, style="Field.TLabel").grid(
-                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
-
-        def combo(var, valores, w=14):
-            return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
-
-        v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
-        v_nucleo = tk.StringVar(); v_vetor = tk.StringVar(); v_nivel = tk.StringVar()
-        v_forma = tk.StringVar(); v_alcance = tk.StringVar(); v_area = tk.StringVar()
-        v_tipos = tk.StringVar(); v_dado_x = tk.IntVar(value=1); v_dado_y = tk.StringVar(value="6")
-        v_mult = tk.IntVar(value=2); v_conjs = tk.StringVar()
-        v_fam_nome = tk.StringVar()
-
-        lbl(0, 0, "Nome")
-        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
-        lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
-        lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
-        lbl(2, 0, "Núcleo");    combo(v_nucleo, NUCLEOS).grid(row=2, column=1, sticky="ew", pady=3)
-        lbl(2, 2, "Vetor");     combo(v_vetor, VETORES).grid(row=2, column=3, sticky="ew", pady=3)
-        lbl(3, 0, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=3, column=1, sticky="ew", pady=3)
-        lbl(3, 2, "Forma")
-        ttk.Entry(form, textvariable=v_forma).grid(row=3, column=3, sticky="ew", pady=3)
-        lbl(4, 0, "Alcance");   combo(v_alcance, ALCANCES).grid(row=4, column=1, sticky="ew", pady=3)
-        lbl(4, 2, "Área");      combo(v_area, AREAS).grid(row=4, column=3, sticky="ew", pady=3)
-        lbl(5, 0, "Tipos de dano")
-        ttk.Entry(form, textvariable=v_tipos).grid(row=5, column=1, columnspan=3, sticky="ew", pady=3)
-        ttk.Label(form, text="(vírgula — ex.: CORTE, IMPACTO)", style="Sub.TLabel").grid(
-            row=6, column=1, columnspan=3, sticky="w")
-        lbl(7, 0, "Dado X")
-        ttk.Spinbox(form, from_=1, to=6, textvariable=v_dado_x, width=6).grid(row=7, column=1, sticky="w", pady=3)
-        lbl(7, 2, "Dado Y");    combo(v_dado_y, _DADO_Y, w=6).grid(row=7, column=3, sticky="w", pady=3)
-        lbl(8, 0, "Mult. crítico")
-        ttk.Spinbox(form, from_=2, to=4, textvariable=v_mult, width=6).grid(row=8, column=1, sticky="w", pady=3)
-        lbl(9, 0, "Conjurações")
-        ttk.Entry(form, textvariable=v_conjs, state="readonly").grid(
-            row=9, column=1, columnspan=3, sticky="ew", pady=3)
-        lbl(10, 0, "Descrição")
-        t_descricao = self._mk_text(form, height=4)
-        t_descricao.grid(row=10, column=1, columnspan=3, sticky="nsew", pady=3)
-        lbl(11, 0, "Familiar")
-        ttk.Entry(form, textvariable=v_fam_nome).grid(row=11, column=1, columnspan=3, sticky="ew", pady=3)
-        lbl(12, 0, "Fam. descrição")
-        t_fam_desc = self._mk_text(form, height=3)
-        t_fam_desc.grid(row=12, column=1, columnspan=3, sticky="ew", pady=3)
-        lbl(13, 0, "Fam. comport.")
-        t_fam_comp = self._mk_text(form, height=3)
-        t_fam_comp.grid(row=13, column=1, columnspan=3, sticky="ew", pady=3)
-        self._botoes_form(form, 14)
-
-        def popular(r):
-            dd = r.get("dado_dano") or {}
-            v_nome.set(r.get("nome", "")); v_matriz.set(r.get("matriz", ""))
-            v_submatriz.set(r.get("submatriz", "NENHUMA")); v_nucleo.set(r.get("nucleo", ""))
-            v_vetor.set(r.get("vetor", "")); v_nivel.set(r.get("nivel", ""))
-            v_forma.set(r.get("forma", "")); v_alcance.set(r.get("alcance", ""))
-            v_area.set(r.get("area", "")); v_tipos.set(", ".join(r.get("tipos_dano") or []))
-            v_dado_x.set(int(dd.get("x", 1) or 1)); v_dado_y.set(str(dd.get("y", 6)))
-            v_mult.set(int(r.get("mult_critico", 2) or 2))
-            nomes_conj = ", ".join(
-                (x.get("nome", "") if isinstance(x, dict) else str(x))
-                for x in (r.get("conjuracoes") or []))
-            v_conjs.set(nomes_conj)
-            v_fam_nome.set(r.get("familiar_nome", ""))
-            t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", r.get("descricao", ""))
-            t_fam_desc.delete("1.0", tk.END); t_fam_desc.insert("1.0", r.get("familiar_descricao", ""))
-            t_fam_comp.delete("1.0", tk.END); t_fam_comp.insert("1.0", r.get("familiar_comportamento", ""))
-
-        def coletar(r):
-            r["nome"] = v_nome.get().strip() or r.get("nome", "")
-            r["matriz"] = v_matriz.get(); r["submatriz"] = v_submatriz.get()
-            r["nucleo"] = v_nucleo.get(); r["vetor"] = v_vetor.get()
-            r["nivel"] = v_nivel.get(); r["forma"] = v_forma.get()
-            r["alcance"] = v_alcance.get(); r["area"] = v_area.get()
-            r["tipos_dano"] = [t.upper() for t in self._csv(v_tipos.get())]
-            r["familiar_nome"] = v_fam_nome.get()
-            r["descricao"] = t_descricao.get("1.0", tk.END).strip()
-            r["familiar_descricao"] = t_fam_desc.get("1.0", tk.END).strip()
-            r["familiar_comportamento"] = t_fam_comp.get("1.0", tk.END).strip()
-            # 'conjuracoes' guarda dicts completos — não é editado aqui.
-            try:
-                r["dado_dano"] = {"x": int(v_dado_x.get()), "y": int(v_dado_y.get())}
-                r["mult_critico"] = int(v_mult.get())
-            except (tk.TclError, ValueError):
-                self.var_status.set("✗ Valores numéricos inválidos — verifique dado/mult. crítico.")
-                return False
-            return True
-
-        return form, popular, coletar
-
-    # ── Form: Familiar ────────────────────────────────────────────────────────
-    def _construir_form_familiar(self, parent: ttk.Frame):
-        form = ttk.Frame(parent)
-        form.columnconfigure(1, weight=1)
-        form.columnconfigure(3, weight=1)
-        form.rowconfigure(4, weight=1)
         form.rowconfigure(6, weight=1)
 
         def lbl(r, c, txt):
@@ -867,37 +781,142 @@ class GeradorGUI:
             return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
 
         v_nome = tk.StringVar(); v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
-        v_raridade = tk.StringVar(); v_habilidades = tk.StringVar()
+        v_nucleo = tk.StringVar(); v_nivel = tk.StringVar(); v_alcance = tk.StringVar()
+        v_dado_x = tk.IntVar(value=1); v_dado_y = tk.StringVar(value="6")
+        v_conjs = tk.StringVar()
 
         lbl(0, 0, "Nome")
         ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
         lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
         lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
-        lbl(2, 0, "Raridade");  combo(v_raridade, RARIDADES).grid(row=2, column=1, sticky="ew", pady=3)
-        lbl(3, 0, "Habilidades")
-        ttk.Entry(form, textvariable=v_habilidades).grid(row=3, column=1, columnspan=3, sticky="ew", pady=3)
-        lbl(4, 0, "Descrição")
-        t_descricao = self._mk_text(form, height=5)
-        t_descricao.grid(row=4, column=1, columnspan=3, sticky="nsew", pady=3)
-        lbl(6, 0, "Comportamento")
-        t_comport = self._mk_text(form, height=5)
-        t_comport.grid(row=6, column=1, columnspan=3, sticky="nsew", pady=3)
+        lbl(2, 0, "Núcleo");    combo(v_nucleo, NUCLEOS).grid(row=2, column=1, sticky="ew", pady=3)
+        lbl(2, 2, "Nível");     combo(v_nivel, NIVEIS_RELIQUIA).grid(row=2, column=3, sticky="ew", pady=3)
+        lbl(3, 0, "Alcance");   combo(v_alcance, ALCANCES).grid(row=3, column=1, sticky="ew", pady=3)
+        lbl(4, 0, "Dado X")
+        ttk.Spinbox(form, from_=1, to=6, textvariable=v_dado_x, width=6).grid(row=4, column=1, sticky="w", pady=3)
+        lbl(4, 2, "Dado Y");    combo(v_dado_y, _DADO_Y, w=6).grid(row=4, column=3, sticky="w", pady=3)
+        lbl(5, 0, "Conjurações")
+        ttk.Entry(form, textvariable=v_conjs, state="readonly").grid(
+            row=5, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(6, 0, "Descrição")
+        t_descricao = self._mk_text(form, height=6)
+        t_descricao.grid(row=6, column=1, columnspan=3, sticky="nsew", pady=3)
         self._botoes_form(form, 7)
 
+        def popular(r):
+            dd = r.get("dado_dano") or {}
+            v_nome.set(r.get("nome", "")); v_matriz.set(r.get("matriz", ""))
+            v_submatriz.set(r.get("submatriz", "NENHUMA")); v_nucleo.set(r.get("nucleo", ""))
+            v_nivel.set(r.get("nivel", "")); v_alcance.set(r.get("alcance", ""))
+            v_dado_x.set(int(dd.get("x", 1) or 1)); v_dado_y.set(str(dd.get("y", 6)))
+            nomes_conj = ", ".join(
+                (x.get("nome", "") if isinstance(x, dict) else str(x))
+                for x in (r.get("conjuracoes") or []))
+            v_conjs.set(nomes_conj)
+            t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", r.get("descricao", ""))
+
+        def coletar(r):
+            r["nome"] = v_nome.get().strip() or r.get("nome", "")
+            r["matriz"] = v_matriz.get(); r["submatriz"] = v_submatriz.get()
+            r["nucleo"] = v_nucleo.get(); r["nivel"] = v_nivel.get()
+            r["alcance"] = v_alcance.get()
+            r["descricao"] = t_descricao.get("1.0", tk.END).strip()
+            # 'conjuracoes' guarda dicts completos — não é editado aqui.
+            try:
+                r["dado_dano"] = {"x": int(v_dado_x.get()), "y": int(v_dado_y.get())}
+            except (tk.TclError, ValueError):
+                self.var_status.set("✗ Valores numéricos inválidos — verifique o dado de dano.")
+                return False
+            return True
+
+        return form, popular, coletar
+
+    # ── Form: Familiar ────────────────────────────────────────────────────────
+    def _construir_form_familiar(self, parent: ttk.Frame):
+        form = ttk.Frame(parent)
+        form.columnconfigure(1, weight=1)
+        form.columnconfigure(3, weight=1)
+        form.rowconfigure(8, weight=1)
+
+        def lbl(r, c, txt):
+            ttk.Label(form, text=txt, style="Field.TLabel").grid(
+                row=r, column=c, sticky="w", padx=(0, 6), pady=3)
+
+        def combo(var, valores, w=14):
+            return ttk.Combobox(form, textvariable=var, values=valores, state="readonly", width=w)
+
+        v_nome = tk.StringVar(); v_especie = tk.StringVar()
+        v_matriz = tk.StringVar(); v_submatriz = tk.StringVar()
+        v_patamar = tk.IntVar(value=1); v_ameaca = tk.IntVar(value=1)
+        v_porte = tk.StringVar(); v_cob = tk.StringVar(); v_cor = tk.StringVar()
+        v_temp = tk.StringVar(); v_hab = tk.StringVar(); v_soc = tk.StringVar()
+        v_bioma = tk.StringVar(); v_regiao = tk.StringVar()
+        v_carac = tk.StringVar(); v_fisicas = tk.StringVar(); v_matrizhab = tk.StringVar()
+
+        lbl(0, 0, "Nome")
+        ttk.Entry(form, textvariable=v_nome).grid(row=0, column=1, sticky="ew", pady=3)
+        lbl(0, 2, "Espécie")
+        ttk.Entry(form, textvariable=v_especie).grid(row=0, column=3, sticky="ew", pady=3)
+        lbl(1, 0, "Matriz");    combo(v_matriz, MATRIZES).grid(row=1, column=1, sticky="ew", pady=3)
+        lbl(1, 2, "Submatriz"); combo(v_submatriz, SUBMATRIZES).grid(row=1, column=3, sticky="ew", pady=3)
+        lbl(2, 0, "Patamar")
+        ttk.Spinbox(form, from_=1, to=99, textvariable=v_patamar, width=6).grid(row=2, column=1, sticky="w", pady=3)
+        lbl(2, 2, "Nível ameaça")
+        ttk.Spinbox(form, from_=1, to=10, textvariable=v_ameaca, width=6).grid(row=2, column=3, sticky="w", pady=3)
+        lbl(3, 0, "Porte");     combo(v_porte, PORTES).grid(row=3, column=1, sticky="ew", pady=3)
+        lbl(3, 2, "Cobertura"); combo(v_cob, COBERTURAS).grid(row=3, column=3, sticky="ew", pady=3)
+        lbl(4, 0, "Coloração")
+        ttk.Entry(form, textvariable=v_cor).grid(row=4, column=1, sticky="ew", pady=3)
+        lbl(4, 2, "Temperamento"); combo(v_temp, TEMPERAMENTOS).grid(row=4, column=3, sticky="ew", pady=3)
+        lbl(5, 0, "Hábito");    combo(v_hab, HABITOS).grid(row=5, column=1, sticky="ew", pady=3)
+        lbl(5, 2, "Socialização"); combo(v_soc, SOCIALIZACOES).grid(row=5, column=3, sticky="ew", pady=3)
+        lbl(6, 0, "Bioma")
+        ttk.Entry(form, textvariable=v_bioma).grid(row=6, column=1, sticky="ew", pady=3)
+        lbl(6, 2, "Região")
+        ttk.Entry(form, textvariable=v_regiao).grid(row=6, column=3, sticky="ew", pady=3)
+        lbl(7, 0, "Caract. matriz")
+        ttk.Entry(form, textvariable=v_carac).grid(row=7, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(8, 0, "Hab. físicas")
+        ttk.Entry(form, textvariable=v_fisicas).grid(row=8, column=1, columnspan=3, sticky="ew", pady=3)
+        lbl(9, 0, "Hab. de matriz")
+        ttk.Entry(form, textvariable=v_matrizhab).grid(row=9, column=1, columnspan=3, sticky="ew", pady=3)
+        ttk.Label(form, text="(listas separadas por vírgula)", style="Sub.TLabel").grid(
+            row=10, column=1, columnspan=3, sticky="w")
+        lbl(11, 0, "Descrição")
+        t_descricao = self._mk_text(form, height=5)
+        t_descricao.grid(row=11, column=1, columnspan=3, sticky="nsew", pady=3)
+        self._botoes_form(form, 12)
+
         def popular(c):
-            v_nome.set(c.get("nome", "")); v_matriz.set(c.get("matriz", ""))
-            v_submatriz.set(c.get("submatriz", "NENHUMA")); v_raridade.set(c.get("raridade", ""))
-            v_habilidades.set(", ".join(c.get("habilidades") or []))
+            v_nome.set(c.get("nome", "")); v_especie.set(c.get("especie_base", ""))
+            v_matriz.set(c.get("matriz", "")); v_submatriz.set(c.get("submatriz", "NENHUMA"))
+            v_patamar.set(int(c.get("patamar", 1) or 1)); v_ameaca.set(int(c.get("nivel_ameaca", 1) or 1))
+            v_porte.set(c.get("porte", "")); v_cob.set(c.get("cobertura", ""))
+            v_cor.set(c.get("coloracao", "")); v_temp.set(c.get("temperamento", ""))
+            v_hab.set(c.get("habito", "")); v_soc.set(c.get("socializacao", ""))
+            v_bioma.set(c.get("bioma", "")); v_regiao.set(c.get("regiao", ""))
+            v_carac.set(", ".join(c.get("caracteristicas_matriz") or []))
+            v_fisicas.set(", ".join(c.get("habilidades_fisicas") or []))
+            v_matrizhab.set(", ".join(c.get("habilidades_matriz") or []))
             t_descricao.delete("1.0", tk.END); t_descricao.insert("1.0", c.get("descricao", ""))
-            t_comport.delete("1.0", tk.END); t_comport.insert("1.0", c.get("comportamento", ""))
 
         def coletar(c):
             c["nome"] = v_nome.get().strip() or c.get("nome", "")
-            c["matriz"] = v_matriz.get(); c["submatriz"] = v_submatriz.get()
-            c["raridade"] = v_raridade.get()
-            c["habilidades"] = self._csv(v_habilidades.get())
+            c["especie_base"] = v_especie.get(); c["matriz"] = v_matriz.get()
+            c["submatriz"] = v_submatriz.get()
+            c["porte"] = v_porte.get(); c["cobertura"] = v_cob.get()
+            c["coloracao"] = v_cor.get(); c["temperamento"] = v_temp.get()
+            c["habito"] = v_hab.get(); c["socializacao"] = v_soc.get()
+            c["bioma"] = v_bioma.get(); c["regiao"] = v_regiao.get()
+            c["caracteristicas_matriz"] = self._csv(v_carac.get())
+            c["habilidades_fisicas"] = self._csv(v_fisicas.get())
+            c["habilidades_matriz"] = self._csv(v_matrizhab.get())
             c["descricao"] = t_descricao.get("1.0", tk.END).strip()
-            c["comportamento"] = t_comport.get("1.0", tk.END).strip()
+            try:
+                c["patamar"] = int(v_patamar.get()); c["nivel_ameaca"] = int(v_ameaca.get())
+            except (tk.TclError, ValueError):
+                self.var_status.set("✗ Valores numéricos inválidos — verifique patamar/ameaça.")
+                return False
             return True
 
         return form, popular, coletar
