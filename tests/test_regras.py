@@ -282,6 +282,26 @@ class TestCorrigirAtributos:
         for grau in (1, 6, 12, 18, 24, 30):
             self._valido_apos_correcao(attrs, grau)
 
+    def test_preserva_atributo_zerado_ao_aumentar(self):
+        # Soma 5 (abaixo do alvo 10): os pontos extras devem ir para os outros
+        # cinco atributos, mantendo o único zero intencional.
+        attrs = {"brutalidade": 0, "rapidez": 1, "vitalidade": 1,
+                 "influencia": 1, "sintonia": 1, "astucia": 1}
+        corrigido = corrigir_atributos(attrs, grau=1)
+        assert corrigido["brutalidade"] == 0
+        ok, msg = validar_atributos(corrigido, 1)
+        assert ok, msg
+
+    def test_zero_recebe_pontos_apenas_se_necessario(self):
+        # Grau 30 (alvo 15): com os outros cinco no máximo (30 > 15) o zero
+        # continua preservado; mas se o alvo exigir, ele pode ser usado.
+        attrs = {"brutalidade": 0, "rapidez": 6, "vitalidade": 6,
+                 "influencia": 6, "sintonia": 6, "astucia": 6}
+        corrigido = corrigir_atributos(attrs, grau=30)
+        assert corrigido["brutalidade"] == 0
+        ok, msg = validar_atributos(corrigido, 30)
+        assert ok, msg
+
 
 # ─── contar_pericias / ajustar_pericias ─────────────────────────────────────────
 

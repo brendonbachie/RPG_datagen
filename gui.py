@@ -7,6 +7,7 @@ import json
 import queue
 import sys
 import threading
+import time
 import traceback
 import tkinter as tk
 from tkinter import filedialog, font as tkfont, messagebox, scrolledtext, ttk
@@ -82,7 +83,7 @@ _GERADORES = {
 class GeradorGUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Gerador de Conteúdo — ")
+        self.root.title("Gerador de Conteúdo — Sistema das Relíquias")
         self.root.minsize(820, 760)
         self.root.configure(bg=BASE)
         # Se a fonte mono não tiver os glifos de box-drawing (largura 0), a
@@ -346,10 +347,13 @@ class GeradorGUI:
                    command=lambda: self._limpar(saida_json, saida_ficha)).pack(side=tk.RIGHT)
 
         # Conecta o botão GERAR
-        acao = lambda *_: self._iniciar_geracao(
-            tipo, entrada, var_nivel, saida_json, saida_ficha, btn_gerar, nb_saida,
-            coletar_prefs,
-        )
+        def acao(*_):
+            self._iniciar_geracao(
+                tipo, entrada, var_nivel, saida_json, saida_ficha, btn_gerar,
+                nb_saida, coletar_prefs,
+            )
+            return "break"  # Ctrl+Enter não insere quebra de linha no conceito
+
         btn_gerar.configure(command=acao)
         entrada.bind("<Control-Return>", acao)
 
@@ -948,29 +952,65 @@ class GeradorGUI:
         if not sel:
             return
         self._bib_idx = sel[0]
+        # Nome no momento da seleção — âncora para salvar/excluir mesmo que o
+        # arquivo ganhe itens novos (geração em paralelo) entre a carga e a ação.
+        self._bib_nome_original = biblioteca.normalizar(
+            self._bib_cache[sel[0]].get("nome", ""))
         self._forms[self._bib_tipo]["popular"](self._bib_cache[sel[0]])
+
+    def _indice_no_arquivo(self, itens: list[dict]) -> int | None:
+        """Posição do item selecionado na lista FRESCA do arquivo (por nome)."""
+        alvo = getattr(self, "_bib_nome_original", "")
+        if alvo:
+            for i, c in enumerate(itens):
+                if biblioteca.normalizar(c.get("nome", "")) == alvo:
+                    return i
+        # Fallback: índice da seleção, se ainda válido.
+        if self._bib_idx is not None and 0 <= self._bib_idx < len(itens):
+            return self._bib_idx
+        return None
 
     def _salvar_item_editado(self) -> None:
         if self._bib_idx is None or not (0 <= self._bib_idx < len(self._bib_cache)):
             self.var_status.set("Selecione um item na lista para editar.")
             return
         info = self._forms[self._bib_tipo]
-        item = self._bib_cache[self._bib_idx]
+        item = dict(self._bib_cache[self._bib_idx])
         if info["coletar"](item) is False:
             return  # erro numérico já reportado no status
-        info["colecao"].salvar_lista(self._bib_cache)
-        idx = self._bib_idx
+
+        # Regrava sobre o estado ATUAL do arquivo, não sobre o cache da tela.
+        itens = info["colecao"].carregar()
+        idx = self._indice_no_arquivo(itens)
+        if idx is None:
+            itens.append(item)
+        else:
+            itens[idx] = item
+        info["colecao"].salvar_lista(itens)
         self._recarregar_biblioteca()
-        self.lista_biblioteca.selection_set(idx)
+        nova_pos = idx if idx is not None else len(itens) - 1
+        if 0 <= nova_pos < self.lista_biblioteca.size():
+            self.lista_biblioteca.selection_set(nova_pos)
+            self._bib_idx = nova_pos
+            self._bib_nome_original = biblioteca.normalizar(item.get("nome", ""))
         self.var_status.set(f"✓ Salvo: {item.get('nome', '?')}")
 
     def _excluir_item(self) -> None:
         if self._bib_idx is None or not (0 <= self._bib_idx < len(self._bib_cache)):
             self.var_status.set("Selecione um item para excluir.")
             return
+        nome = self._bib_cache[self._bib_idx].get("nome", "?")
+        if not messagebox.askyesno("Excluir", f"Excluir '{nome}' da biblioteca?"):
+            return
         info = self._forms[self._bib_tipo]
-        removido = self._bib_cache.pop(self._bib_idx)
-        info["colecao"].salvar_lista(self._bib_cache)
+        itens = info["colecao"].carregar()
+        idx = self._indice_no_arquivo(itens)
+        if idx is None:
+            self.var_status.set("Item não encontrado no arquivo — lista recarregada.")
+            self._recarregar_biblioteca()
+            return
+        removido = itens.pop(idx)
+        info["colecao"].salvar_lista(itens)
         self._bib_idx = None
         self._recarregar_biblioteca()
         self.var_status.set(f"✓ Excluído: {removido.get('nome', '?')}")
@@ -1008,13 +1048,30 @@ class GeradorGUI:
             messagebox.showwarning("Aviso", "Digite um conceito antes de gerar.")
             return
 
+        # Uma geração por vez: evita corrida no NUM_CTX global e na biblioteca.
+        if getattr(self, "_gerando", False):
+            self.var_status.set("⏳ Aguarde — já existe uma geração em andamento.")
+            return
+
         modelo  = self.var_modelo.get().strip() or None
         url     = self.var_url.get().strip() or None
-        num_ctx = self.var_ctx.get()
-        nivel   = var_nivel.get() if var_nivel else 1
+        # Spinbox com texto inválido lança TclError — cai no padrão do módulo.
+        try:
+            num_ctx = int(self.var_ctx.get())
+        except (tk.TclError, ValueError):
+            num_ctx = _ollama_mod.NUM_CTX
+            self.var_ctx.set(num_ctx)
+        try:
+            nivel = int(var_nivel.get()) if var_nivel else 1
+        except (tk.TclError, ValueError):
+            nivel = 1
         # Preferências lidas AQUI (thread principal); a thread só recebe o dict.
         prefs   = coletar_prefs() if coletar_prefs else None
 
+        # NUM_CTX ajustado na thread principal, antes de iniciar o trabalho.
+        _ollama_mod.NUM_CTX = num_ctx
+
+        self._gerando = True
         btn.configure(state=tk.DISABLED, text="⏳ Gerando…")
         self.var_status.set(f"Gerando {tipo}… isso pode levar alguns segundos.")
         self._mostrar_texto(saida_json,  "⏳ Aguardando resposta do Ollama…")
@@ -1028,7 +1085,6 @@ class GeradorGUI:
         def tarefa() -> None:
             print(f"[gui] geração iniciada: tipo={tipo!r} modelo={modelo!r}", file=sys.stderr, flush=True)
             try:
-                _ollama_mod.NUM_CTX = num_ctx
                 if tipo == "conjurador":
                     resultado = gerar_conjurador(conceito, nivel, modelo, url, prefs=prefs)
                 else:
@@ -1043,20 +1099,25 @@ class GeradorGUI:
                 fila.put(("erro", f"✗ ERRO INESPERADO\n\n{tb}"))
                 print(f"[gui] exceção inesperada:\n{tb}", file=sys.stderr, flush=True)
 
+        inicio = time.monotonic()
+
         def consumir() -> None:
             try:
                 status, payload = fila.get_nowait()
             except queue.Empty:
-                self.root.after(120, consumir)   # ainda processando — repõe o poller
+                segundos = int(time.monotonic() - inicio)
+                self.var_status.set(f"Gerando {tipo}… ({segundos}s)")
+                self.root.after(250, consumir)   # ainda processando — repõe o poller
                 return
 
+            self._gerando = False
             if status == "ok":
                 texto_json  = json.dumps(payload, ensure_ascii=False, indent=2)
                 texto_ficha = formatar(tipo, payload, ascii_mode=self.ascii_ficha)  # type: ignore[arg-type]
                 self._mostrar_texto(saida_json,  texto_json)
                 self._mostrar_texto(saida_ficha, texto_ficha)
                 nb_saida.select(1)                 # vai para a aba Ficha
-                self.var_status.set("✓ Geração concluída!")
+                self.var_status.set(f"✓ Geração concluída em {int(time.monotonic() - inicio)}s.")
             else:
                 self._mostrar_texto(saida_json,  str(payload))
                 self._mostrar_texto(saida_ficha, str(payload))
@@ -1084,7 +1145,7 @@ class GeradorGUI:
 
     def _salvar(self, widget: scrolledtext.ScrolledText, tipo: str) -> None:
         texto = widget.get("1.0", tk.END).strip()
-        if not texto or texto.startswith("⏳") or texto.startswith("ERRO"):
+        if not texto or texto.startswith(("⏳", "✗", "ERRO")):
             messagebox.showwarning("Aviso", "Nada para salvar.")
             return
         caminho = filedialog.asksaveasfilename(

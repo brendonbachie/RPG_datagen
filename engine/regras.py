@@ -198,8 +198,12 @@ def corrigir_atributos(atributos: dict[str, int], grau: int = 1) -> dict[str, in
 
     zero_attr = next((a for a in ATRIBUTOS if corrigido[a] == 0), None)
 
-    # Aumenta atributos não-máximos até a soma alvo
-    for a in ATRIBUTOS:
+    # Aumenta atributos não-máximos até a soma alvo. O atributo intencionalmente
+    # zerado fica por último: só recebe pontos se os outros cinco não bastarem.
+    ordem_aumento = [a for a in ATRIBUTOS if a != zero_attr]
+    if zero_attr:
+        ordem_aumento.append(zero_attr)
+    for a in ordem_aumento:
         if sum(corrigido.values()) >= alvo:
             break
         espaco = ATR_MAX - corrigido[a]

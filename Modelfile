@@ -1,4 +1,4 @@
-FROM qwen3:8b
+FROM llama3:latest
 
 # Aumenta o contexto para caber as regras (~13k tokens) + prompt do usuário
 PARAMETER num_ctx 16384

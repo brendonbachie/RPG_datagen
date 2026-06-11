@@ -1,0 +1,7 @@
+# Normaliza fins de linha: LF no repositório, independente do editor/SO.
+# Evita que salvar no Windows (CRLF) suje o git diff com o arquivo inteiro.
+* text=auto
+*.py text
+*.md text
+*.json text
+*.txt text

@@ -72,11 +72,11 @@ ollama serve
 ## 2 — Baixar o modelo
 
 ```bash
-ollama pull qwen3:8b
+ollama pull llama3
 ```
 
-> O modelo `qwen3:8b` pesa ~5 GB. Qualquer modelo compatível com Ollama funciona
-> (ex: `llama3.1:8b`, `mistral:7b`). Use a variável `RPG_MODEL` para trocar.
+> O modelo `llama3` (8B) pesa ~4,7 GB. Qualquer modelo compatível com Ollama
+> funciona (ex: `qwen3:8b`, `mistral:7b`). Use a variável `RPG_MODEL` para trocar.
 
 ---
 
@@ -130,7 +130,7 @@ python gerador.py conjurador "arqueiro flora" > personagem.json
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `RPG_MODEL` | `qwen3:8b` | Modelo Ollama a usar |
+| `RPG_MODEL` | `llama3:latest` | Modelo Ollama a usar |
 | `RPG_OLLAMA_URL` | `http://localhost:11434/api/chat` | Endpoint da API |
 | `RPG_NUM_CTX` | `16384` | Tamanho do contexto em tokens |
 | `RPG_TIMEOUT` | `600` | Timeout (s) por chamada — aumente em máquinas lentas |
@@ -204,7 +204,7 @@ gerador.py
       │  monta system prompt (regras) + user prompt (conceito)
       │  envia JSON Schema no campo "format"
       ▼
-Ollama (qwen3:8b local)
+Ollama (llama3 local)
       │  retorna JSON válido conforme schema
       ▼
 Pós-processamento (apenas conjurador)

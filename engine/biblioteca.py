@@ -39,6 +39,7 @@ class Colecao:
         self._arquivo = arquivo          # nome do arquivo (ex.: "familiares.json")
         self._env = env                  # var de ambiente p/ caminho completo (legado)
         self._lote = threading.local()   # estado de lote isolado por thread
+        self._mutex = threading.Lock()   # serializa read-modify-write entre threads
 
     # ── Caminho ─────────────────────────────────────────────────────────────
     def caminho(self) -> pathlib.Path:
@@ -86,7 +87,8 @@ class Colecao:
             self._lote.lista = []
             self._lote.existentes = set()
             if sujo:
-                self._salvar(lista)
+                with self._mutex:
+                    self._salvar(lista)
 
     # ── Leitura ─────────────────────────────────────────────────────────────
     def carregar(self) -> list[dict]:
@@ -141,18 +143,20 @@ class Colecao:
             self._lote.sujo = True
             return True
 
-        itens = self.carregar()
-        existentes = {normalizar(c.get("nome", "")) for c in itens}
-        if chave in existentes:
-            return False
+        with self._mutex:
+            itens = self.carregar()
+            existentes = {normalizar(c.get("nome", "")) for c in itens}
+            if chave in existentes:
+                return False
 
-        itens.append(entidade)
-        self._salvar(itens)
-        return True
+            itens.append(entidade)
+            self._salvar(itens)
+            return True
 
     def salvar_lista(self, itens: list[dict]) -> None:
         """Persiste a lista completa (usado pela edição/exclusão manual na GUI)."""
-        self._salvar(list(itens))
+        with self._mutex:
+            self._salvar(list(itens))
 
     # ── Específico de conjurações (habilidades) ──────────────────────────────
     def selecionar(self, quantidade: int, matriz: str | None = None, estrito: bool = False) -> list[dict]:

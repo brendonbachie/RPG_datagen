@@ -61,6 +61,18 @@ def chamar_ollama(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             corpo = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        # O corpo da resposta de erro do Ollama explica a causa real
+        # (ex.: "model 'x' not found, try pulling it first").
+        try:
+            detalhe = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            detalhe = ""
+        raise ErroOllama(
+            f"O Ollama respondeu com erro HTTP {e.code} em '{url}'.\n"
+            f"Modelo solicitado: '{modelo}'\n"
+            f"Detalhe: {detalhe or e.reason}"
+        ) from e
     except urllib.error.URLError as e:
         raise ErroOllama(
             f"Não foi possível conectar ao Ollama em '{url}'.\n"

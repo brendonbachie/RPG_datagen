@@ -68,5 +68,43 @@
     "efeitos": [
       "CAÍDO"
     ]
+  },
+  {
+    "nome": "Fragor de Gelo",
+    "descricao": "O ar se enche de um frio intenso quando você lança uma espiral gelada que se esticar até o alvo, congelando-o instantaneamente.",
+    "matriz": "NEUTRO",
+    "submatriz": "ESPIRAL",
+    "custo": 1,
+    "ganho_conexao": 0,
+    "gasto_acao": "AÇÃO COMPLEXA",
+    "alcance": "MÉDIO",
+    "area": "ALVO",
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 1,
+      "y": 20
+    },
+    "efeitos": [
+      "IMOBILIZADO"
+    ]
+  },
+  {
+    "nome": "Vespas Floridas",
+    "descricao": "Uma massagem de espinhos floridos surge das mãos do conjurador e se estende para agarrar o inimigo, como se uma serpente de flores vivesse em movimento.",
+    "matriz": "FAUNA",
+    "submatriz": "ESPIRAL",
+    "custo": 1,
+    "ganho_conexao": 0,
+    "gasto_acao": "AÇÃO COMPLEXA",
+    "alcance": "MÉDIO",
+    "area": "ALVO",
+    "tem_dano": false,
+    "dado_dano": {
+      "x": 1,
+      "y": 20
+    },
+    "efeitos": [
+      "IMOBILIZADO"
+    ]
   }
 ]

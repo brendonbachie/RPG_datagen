@@ -79,6 +79,7 @@ def _abrir(linhas: list[str]) -> None:
 
 
 def _row(txt: str) -> str:
+    txt = txt[: _LARGURA - 2]  # nunca estoura a moldura
     pad = _LARGURA - len(txt) - 2
     return f"║  {txt}" + " " * max(0, pad) + "║"
 
@@ -89,6 +90,7 @@ def _div(linhas: list[str]) -> None:
 
 def _bloco_texto(linhas: list[str], texto: str) -> None:
     for ln in _wrap(texto).split("\n"):
+        ln = ln[: _LARGURA - 2]  # palavras maiores que a moldura são truncadas
         pad = _LARGURA - len(ln) - 2
         linhas.append(f"║{ln}" + " " * max(0, pad) + "  ║")
 
